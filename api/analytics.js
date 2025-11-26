@@ -16,31 +16,11 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'GET') {
-    // Check if Blob token is configured
-    // Try multiple possible token names
-    const token = process.env.BLOB_READ_WRITE_TOKEN ||
-                  process.env.ABTEST_ANALYTICS_READ_WRITE_TOKEN ||
-                  process.env.KV_REST_API_TOKEN;
-
-    if (!token) {
-      // Return empty analytics for local development
-      console.log('Available env vars:', Object.keys(process.env).filter(k => k.includes('BLOB') || k.includes('TOKEN')));
-      return res.status(200).json({
-        success: true,
-        message: 'Blob storage not configured (expected in local dev)',
-        fallback: true,
-        note: 'Deploy to Vercel for persistent analytics. Using localStorage for now.',
-        totalEvents: 0,
-        summary: {
-          Alive: { impressions: 0, clicks: 0, purchases: 0, clickRate: '0.00', conversionRate: '0.00', overallConversionRate: '0.00' },
-          Afinal: { impressions: 0, clicks: 0, purchases: 0, clickRate: '0.00', conversionRate: '0.00', overallConversionRate: '0.00' },
-          Blive: { impressions: 0, clicks: 0, purchases: 0, clickRate: '0.00', conversionRate: '0.00', overallConversionRate: '0.00' },
-          Bfinal: { impressions: 0, clicks: 0, purchases: 0, clickRate: '0.00', conversionRate: '0.00', overallConversionRate: '0.00' }
-        },
-        funnel: { impressions: 0, clicks: 0, purchases: 0, clickRate: '0.00', conversionRate: '0.00' },
-        events: []
-      });
-    }
+    // Log available environment variables for debugging
+    console.log('Analytics - Environment variables check:');
+    console.log('- BLOB_READ_WRITE_TOKEN:', process.env.BLOB_READ_WRITE_TOKEN ? 'SET' : 'NOT SET');
+    console.log('- All BLOB vars:', Object.keys(process.env).filter(k => k.includes('BLOB')));
+    console.log('- All TOKEN vars:', Object.keys(process.env).filter(k => k.includes('TOKEN')));
 
     try {
       // Read events from Blob
@@ -100,12 +80,23 @@ export default async function handler(req, res) {
       });
     } catch (error) {
       console.error('Error retrieving analytics:', error);
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+
+      // Check if it's a token error specifically
+      if (error.message && error.message.includes('token')) {
+        console.error('TOKEN ERROR DETECTED - Blob storage connection may be misconfigured');
+      }
 
       // Fallback: Return empty data if Blob is not configured
       return res.status(200).json({
         success: true,
-        message: 'Storage not configured',
+        message: 'Storage error - using localStorage fallback',
         fallback: true,
+        error: error.message,
         totalEvents: 0,
         summary: {
           Alive: { impressions: 0, clicks: 0, purchases: 0, clickRate: '0.00', conversionRate: '0.00', overallConversionRate: '0.00' },
