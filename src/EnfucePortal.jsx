@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 
 const EnfucePortal = () => {
   const [activeSection, setActiveSection] = useState('dashboard');
@@ -862,10 +862,18 @@ const EnfucePortal = () => {
 
   const CreateProgramWizard = () => {
     const showLivePricing = pricingVariant === 'live' && wizardStep > 1 && wizardStep < 5;
+    const scrollContainerRef = useRef(null);
+
+    // Prevent scroll jump on re-renders
+    useEffect(() => {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = 0;
+      }
+    }, [wizardStep]); // Only scroll to top when step changes
 
     return (
-      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div className={`bg-slate-900 rounded-2xl border border-slate-700 w-full ${showLivePricing ? 'max-w-6xl' : 'max-w-3xl'} max-h-[90vh] overflow-hidden flex flex-col`}>
+      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={(e) => e.target === e.currentTarget && setShowCreateWizard(false)}>
+        <div className={`bg-slate-900 rounded-2xl border border-slate-700 w-full ${showLivePricing ? 'max-w-6xl' : 'max-w-3xl'} max-h-[90vh] overflow-hidden flex flex-col`} onClick={(e) => e.stopPropagation()}>
           <div className="p-6 border-b border-slate-700 flex justify-between items-center">
             <div>
               <h2 className="text-xl font-bold text-white">Create Card Program</h2>
@@ -879,7 +887,7 @@ const EnfucePortal = () => {
             </button>
           </div>
 
-          <div className="p-6 overflow-y-auto flex-1 flex gap-6">
+          <div ref={scrollContainerRef} className="p-6 overflow-y-auto flex-1 flex gap-6">
             <div className={`${showLivePricing ? 'flex-1' : 'w-full'}`}>
               <WizardStepIndicator />
               {wizardStep === 1 && <WizardStep1 />}
