@@ -1,0 +1,218 @@
+{
+  "wizard_name": "Card Program Creation Wizard",
+  "description": "AI-powered conversational wizard for creating card programs",
+  "questions": [
+    {
+      "id": "program_name",
+      "question": "Hi! I'm here to help you create a new card program. What would you like to name your card program?",
+      "field": "name",
+      "type": "open_text",
+      "required": true,
+      "keywords": ["corporate", "business", "employee", "company", "card", "program"],
+      "validation": "min_length: 3"
+    },
+    {
+      "id": "card_type",
+      "question": "Great! What type of card program is this?",
+      "field": "type",
+      "type": "multiple_choice",
+      "required": true,
+      "options": [
+        {
+          "value": "corporate",
+          "label": "Corporate",
+          "description": "Business expense cards for employees"
+        },
+        {
+          "value": "fleet",
+          "label": "Fleet/Fuel",
+          "description": "Fuel and vehicle expense cards"
+        },
+        {
+          "value": "meal",
+          "label": "Meal Card",
+          "description": "Employee meal and food benefits"
+        },
+        {
+          "value": "travel",
+          "label": "Travel",
+          "description": "Travel and accommodation expenses"
+        },
+        {
+          "value": "gift",
+          "label": "Gift Card",
+          "description": "Gift cards and vouchers"
+        },
+        {
+          "value": "transport",
+          "label": "Transport",
+          "description": "Transportation and commute expenses"
+        }
+      ],
+      "keywords": ["corporate", "fleet", "fuel", "meal", "travel", "gift", "transport"]
+    },
+    {
+      "id": "funding_model",
+      "question": "Perfect! What funding model would you like?",
+      "field": "fundingModel",
+      "type": "multiple_choice",
+      "required": true,
+      "options": [
+        {
+          "value": "prepaid",
+          "label": "Prepaid",
+          "description": "Load funds in advance"
+        },
+        {
+          "value": "debit",
+          "label": "Debit",
+          "description": "Link to bank account"
+        },
+        {
+          "value": "credit",
+          "label": "Credit",
+          "description": "Credit line with monthly billing"
+        },
+        {
+          "value": "revolving",
+          "label": "Revolving",
+          "description": "Revolving credit facility"
+        }
+      ],
+      "keywords": ["prepaid", "debit", "credit", "revolving"]
+    },
+    {
+      "id": "form_factors",
+      "question": "Which card form factors should we include? You can choose multiple: Physical, Virtual, Tokenized",
+      "field": "formFactor",
+      "type": "multi_select",
+      "required": true,
+      "multiple": true,
+      "options": [
+        {
+          "value": "physical",
+          "label": "Physical",
+          "description": "Traditional plastic cards"
+        },
+        {
+          "value": "virtual",
+          "label": "Virtual",
+          "description": "Digital card numbers only"
+        },
+        {
+          "value": "tokenized",
+          "label": "Tokenized",
+          "description": "Mobile wallet integration (Apple Pay, Google Pay)"
+        }
+      ],
+      "keywords": ["physical", "virtual", "tokenized", "digital", "plastic", "mobile", "wallet"],
+      "input_format": "comma_separated"
+    },
+    {
+      "id": "card_scheme",
+      "question": "Which card scheme would you prefer?",
+      "field": "scheme",
+      "type": "multiple_choice",
+      "required": true,
+      "options": [
+        {
+          "value": "Visa",
+          "label": "Visa",
+          "description": "Visa card network"
+        },
+        {
+          "value": "Mastercard",
+          "label": "Mastercard",
+          "description": "Mastercard network"
+        }
+      ],
+      "keywords": ["visa", "mastercard", "mc"]
+    },
+    {
+      "id": "currency",
+      "question": "What currency should the program use?",
+      "field": "currency",
+      "type": "multiple_choice",
+      "required": true,
+      "options": [
+        {
+          "value": "EUR",
+          "label": "EUR",
+          "description": "Euro (€)"
+        },
+        {
+          "value": "USD",
+          "label": "USD",
+          "description": "US Dollar ($)"
+        },
+        {
+          "value": "GBP",
+          "label": "GBP",
+          "description": "British Pound (£)"
+        },
+        {
+          "value": "SEK",
+          "label": "SEK",
+          "description": "Swedish Krona (kr)"
+        }
+      ],
+      "keywords": ["eur", "euro", "usd", "dollar", "gbp", "pound", "sek", "krona"]
+    },
+    {
+      "id": "estimated_cards",
+      "question": "How many cards do you estimate you'll need?",
+      "field": "estimatedCards",
+      "type": "number",
+      "required": true,
+      "validation": {
+        "min": 1,
+        "max": 1000000,
+        "default": 100
+      },
+      "keywords": ["hundred", "thousand", "many", "several"],
+      "unit": "cards"
+    },
+    {
+      "id": "daily_limit",
+      "question": "Almost done! What should the daily spending limit be? (in your selected currency)",
+      "field": "dailyLimit",
+      "type": "number",
+      "required": true,
+      "validation": {
+        "min": 1,
+        "max": 100000,
+        "default": 500
+      },
+      "keywords": ["limit", "daily", "per day"],
+      "unit": "currency_amount"
+    },
+    {
+      "id": "monthly_limit",
+      "question": "And what about the monthly spending limit?",
+      "field": "monthlyLimit",
+      "type": "number",
+      "required": true,
+      "validation": {
+        "min": 1,
+        "max": 1000000,
+        "default": 5000
+      },
+      "keywords": ["limit", "monthly", "per month"],
+      "unit": "currency_amount"
+    },
+    {
+      "id": "completion",
+      "question": "Excellent! I've gathered all the information. Let me create your program summary...",
+      "field": "complete",
+      "type": "completion",
+      "required": false,
+      "action": "generate_summary"
+    }
+  ],
+  "metadata": {
+    "total_questions": 10,
+    "estimated_time": "3-5 minutes",
+    "language": "en",
+    "version": "1.0"
+  }
+}
