@@ -26,6 +26,17 @@ const EnfucePortal = () => {
     setNewProgram(prev => ({ ...prev, ...updates }));
   }, []);
 
+  // Wizard scroll management
+  const scrollContainerRef = useRef(null);
+  const prevStepRef = useRef(wizardStep);
+
+  useEffect(() => {
+    if (prevStepRef.current !== wizardStep && scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+      prevStepRef.current = wizardStep;
+    }
+  });
+
   // Pricing calculation function
   const calculatePricing = (program) => {
     let total = 0;
@@ -869,18 +880,9 @@ const EnfucePortal = () => {
     );
   };
 
-  const CreateProgramWizard = () => {
+  // Wizard modal JSX - defined here to avoid recreation issues
+  const renderWizardModal = () => {
     const showLivePricing = pricingVariant === 'live' && wizardStep > 1 && wizardStep < 5;
-    const scrollContainerRef = useRef(null);
-    const prevStepRef = useRef(wizardStep);
-
-    // Only scroll to top when step actually changes
-    useEffect(() => {
-      if (prevStepRef.current !== wizardStep && scrollContainerRef.current) {
-        scrollContainerRef.current.scrollTop = 0;
-        prevStepRef.current = wizardStep;
-      }
-    });
 
     return (
       <div className="fixed inset-0 bg-[#2C3E50]/95 backdrop-blur-sm flex items-center justify-center z-50 p-0 sm:p-4" onClick={(e) => e.target === e.currentTarget && setShowCreateWizard(false)}>
@@ -1477,7 +1479,7 @@ const EnfucePortal = () => {
         </main>
       </div>
       
-      {showCreateWizard && <CreateProgramWizard />}
+      {showCreateWizard && renderWizardModal()}
       {selectedProgram && <ProgramDetail program={selectedProgram} />}
     </div>
   );
