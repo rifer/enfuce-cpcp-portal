@@ -160,11 +160,54 @@ See the full PRD in `/docs/Enfuce_CPCP_PRD.docx` for:
 - Risk analysis
 - Success criteria
 
+## 🚀 Deployment
+
+### Deploy to Vercel
+
+This project is configured for one-click deployment to Vercel:
+
+#### Option 1: Deploy via Vercel Dashboard (Recommended)
+
+1. Push your code to GitHub
+2. Visit [vercel.com/new](https://vercel.com/new)
+3. Import your GitHub repository
+4. Vercel will auto-detect the Vite configuration
+5. Click "Deploy"
+
+Your site will be live at `https://your-project-name.vercel.app`
+
+#### Option 2: Deploy via Vercel CLI
+
+```bash
+# Install Vercel CLI globally
+npm install -g vercel
+
+# Deploy to Vercel
+vercel
+
+# Deploy to production
+vercel --prod
+```
+
+#### Custom Domain
+
+After deployment, you can add a custom domain in your Vercel dashboard under:
+**Project Settings → Domains**
+
+### Environment Variables
+
+If you need to add API keys or environment variables:
+1. Go to your Vercel project dashboard
+2. Navigate to **Settings → Environment Variables**
+3. Add variables with prefix `VITE_` (e.g., `VITE_API_KEY`)
+4. Redeploy for changes to take effect
+
 ## 🛠️ Tech Stack
 
 - **Frontend**: React 18 + Tailwind CSS
 - **State Management**: React Hooks
 - **Build Tool**: Vite
+- **Hosting**: Vercel
 - **API**: REST with JSON payloads
 
 ## 📝 License
