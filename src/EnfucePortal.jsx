@@ -298,6 +298,7 @@ const EnfucePortal = () => {
       eventType: 'purchase',
       ctaVariant: abTestVariant,
       pricingVariant: pricingVariant,
+      wizardVariant: wizardVariant, // Add wizard variant to track chat vs traditional
       clickSource: events.find(e => e.sessionId === sessionId && e.eventType === 'click')?.clickSource || 'unknown',
       purchased: true,
       programConfig: JSON.stringify(newProgram).replace(/,/g, ';'),
@@ -1046,6 +1047,20 @@ const EnfucePortal = () => {
     setChatInput('');
 
     // Track chat step completion
+    const sessionId = localStorage.getItem('session_id');
+    sendEventToAPI({
+      timestamp: new Date().toISOString(),
+      sessionId,
+      eventType: 'chat_wizard_event',
+      event_action: 'chat_wizard_step_completed',
+      ctaVariant: abTestVariant,
+      pricingVariant: pricingVariant,
+      wizardVariant: wizardVariant,
+      step: chatStep + 1,
+      field: currentStep.field,
+      step_name: currentStep.question.substring(0, 50)
+    });
+
     if (typeof gtag !== 'undefined') {
       gtag('event', 'chat_wizard_step_completed', {
         step: chatStep + 1,
@@ -1072,6 +1087,17 @@ const EnfucePortal = () => {
   useEffect(() => {
     if (showCreateWizard && wizardVariant === 'chat' && chatMessages.length === 0) {
       // Track chat wizard start
+      const sessionId = localStorage.getItem('session_id');
+      sendEventToAPI({
+        timestamp: new Date().toISOString(),
+        sessionId,
+        eventType: 'chat_wizard_event',
+        event_action: 'chat_wizard_started',
+        ctaVariant: abTestVariant,
+        pricingVariant: pricingVariant,
+        wizardVariant: wizardVariant
+      });
+
       if (typeof gtag !== 'undefined') {
         gtag('event', 'chat_wizard_started', {
           wizard_variant: 'chat',
@@ -1127,17 +1153,31 @@ const EnfucePortal = () => {
             </div>
             <button
               onClick={() => {
-                setShowCreateWizard(false);
-                setChatMessages([]);
-                setChatStep(0);
-                setChatInput('');
                 // Track chat wizard abandonment
+                const sessionId = localStorage.getItem('session_id');
+                sendEventToAPI({
+                  timestamp: new Date().toISOString(),
+                  sessionId,
+                  eventType: 'chat_wizard_event',
+                  event_action: 'chat_wizard_abandoned',
+                  ctaVariant: abTestVariant,
+                  pricingVariant: pricingVariant,
+                  wizardVariant: wizardVariant,
+                  step: chatStep,
+                  messages_count: chatMessages.length
+                });
+
                 if (typeof gtag !== 'undefined') {
                   gtag('event', 'chat_wizard_abandoned', {
                     step: chatStep,
                     messages_count: chatMessages.length
                   });
                 }
+
+                setShowCreateWizard(false);
+                setChatMessages([]);
+                setChatStep(0);
+                setChatInput('');
               }}
               className="text-[#7DD3C0] hover:text-[#FFD93D] text-4xl font-light transition-colors"
             >
@@ -1197,13 +1237,28 @@ const EnfucePortal = () => {
               <button
                 onClick={() => {
                   trackPurchase();
+
                   // Track chat wizard completion
+                  const sessionId = localStorage.getItem('session_id');
+                  sendEventToAPI({
+                    timestamp: new Date().toISOString(),
+                    sessionId,
+                    eventType: 'chat_wizard_event',
+                    event_action: 'chat_wizard_completed',
+                    ctaVariant: abTestVariant,
+                    pricingVariant: pricingVariant,
+                    wizardVariant: wizardVariant,
+                    messages_count: chatMessages.length,
+                    program_name: newProgram.name
+                  });
+
                   if (typeof gtag !== 'undefined') {
                     gtag('event', 'chat_wizard_completed', {
                       messages_count: chatMessages.length,
                       program_name: newProgram.name
                     });
                   }
+
                   setShowCreateWizard(false);
                   setChatMessages([]);
                   setChatStep(0);
