@@ -16,6 +16,17 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
+    // Check if Blob token is configured
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      // Gracefully handle missing token (local development)
+      return res.status(200).json({
+        success: true,
+        message: 'Event received (Blob storage not configured - expected in local dev)',
+        fallback: true,
+        note: 'Events are being tracked in browser localStorage. Deploy to Vercel for persistent storage.'
+      });
+    }
+
     try {
       const event = req.body;
 
