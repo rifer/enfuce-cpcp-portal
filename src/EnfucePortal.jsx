@@ -7,6 +7,7 @@ const EnfucePortal = () => {
   const [selectedProgram, setSelectedProgram] = useState(null);
   const [abTestVariant, setAbTestVariant] = useState(null);
   const [pricingVariant, setPricingVariant] = useState(null);
+  const [wizardVariant, setWizardVariant] = useState(null); // 'traditional' or 'chat'
   const [newProgram, setNewProgram] = useState({
     name: '',
     type: '',
@@ -99,18 +100,22 @@ const EnfucePortal = () => {
     // Check if user already has variants assigned
     let ctaVariant = localStorage.getItem('abtest_cta_variant');
     let pricingVar = localStorage.getItem('abtest_pricing_variant');
+    let wizardVar = localStorage.getItem('abtest_wizard_variant');
 
-    if (!ctaVariant || !pricingVar) {
-      // Randomly assign 25% to each of 4 combinations
+    if (!ctaVariant || !pricingVar || !wizardVar) {
+      // Randomly assign variants
       ctaVariant = Math.random() < 0.5 ? 'A' : 'B';
       pricingVar = Math.random() < 0.5 ? 'live' : 'final';
+      wizardVar = Math.random() < 0.5 ? 'traditional' : 'chat';
 
       localStorage.setItem('abtest_cta_variant', ctaVariant);
       localStorage.setItem('abtest_pricing_variant', pricingVar);
+      localStorage.setItem('abtest_wizard_variant', wizardVar);
     }
 
     setAbTestVariant(ctaVariant);
     setPricingVariant(pricingVar);
+    setWizardVariant(wizardVar);
 
     // Track impression (page load) - use local variables, not state
     trackImpression(ctaVariant, pricingVar);
@@ -973,6 +978,197 @@ const EnfucePortal = () => {
     );
   };
 
+  // Chat state for conversational wizard
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatStep, setChatStep] = useState(0);
+  const [isTyping, setIsTyping] = useState(false);
+  const chatEndRef = useRef(null);
+
+  // Conversation flow for chat wizard
+  const conversationSteps = [
+    { question: "Hi! I'm here to help you create a new card program. What would you like to name your card program?", field: 'name', type: 'text' },
+    { question: "Great! What type of card program is this? (e.g., Corporate, Fleet/Fuel, Meal Card, Travel, Gift Card, or Transport)", field: 'type', type: 'select', options: ['corporate', 'fleet', 'meal', 'travel', 'gift', 'transport'] },
+    { question: "Perfect! What funding model would you like? (Prepaid, Debit, Credit, or Revolving)", field: 'fundingModel', type: 'select', options: ['prepaid', 'debit', 'credit', 'revolving'] },
+    { question: "Which card form factors should we include? You can choose multiple: Physical, Virtual, Tokenized (separate with commas)", field: 'formFactor', type: 'multiselect', options: ['physical', 'virtual', 'tokenized'] },
+    { question: "Which card scheme would you prefer? (Visa or Mastercard)", field: 'scheme', type: 'select', options: ['Visa', 'Mastercard'] },
+    { question: "What currency should the program use? (EUR, USD, GBP, or SEK)", field: 'currency', type: 'select', options: ['EUR', 'USD', 'GBP', 'SEK'] },
+    { question: "How many cards do you estimate you'll need?", field: 'estimatedCards', type: 'number' },
+    { question: "Almost done! What should the daily spending limit be? (in your selected currency)", field: 'dailyLimit', type: 'number' },
+    { question: "And what about the monthly spending limit?", field: 'monthlyLimit', type: 'number' },
+    { question: "Excellent! I've gathered all the information. Let me create your program summary...", field: 'complete', type: 'complete' }
+  ];
+
+  const addChatMessage = useCallback((message, isUser = false) => {
+    setChatMessages(prev => [...prev, { text: message, isUser, timestamp: new Date() }]);
+  }, []);
+
+  const simulateTyping = useCallback((message, callback) => {
+    setIsTyping(true);
+    setTimeout(() => {
+      setIsTyping(false);
+      addChatMessage(message, false);
+      if (callback) callback();
+    }, 500 + Math.random() * 500); // Simulate typing delay
+  }, [addChatMessage]);
+
+  const handleChatSubmit = useCallback((e) => {
+    e?.preventDefault();
+    if (!chatInput.trim() || chatStep >= conversationSteps.length) return;
+
+    const userMessage = chatInput.trim();
+    addChatMessage(userMessage, true);
+
+    const currentStep = conversationSteps[chatStep];
+    let processedValue = userMessage;
+
+    // Parse and validate response based on field type
+    if (currentStep.type === 'multiselect') {
+      const values = userMessage.toLowerCase().split(',').map(v => v.trim());
+      const validValues = values.filter(v => currentStep.options.some(opt => opt.toLowerCase().includes(v) || v.includes(opt.toLowerCase())));
+      processedValue = validValues.length > 0 ? validValues : [currentStep.options[0]];
+    } else if (currentStep.type === 'select') {
+      const foundOption = currentStep.options.find(opt =>
+        opt.toLowerCase().includes(userMessage.toLowerCase()) ||
+        userMessage.toLowerCase().includes(opt.toLowerCase())
+      );
+      processedValue = foundOption || currentStep.options[0];
+    } else if (currentStep.type === 'number') {
+      const num = parseInt(userMessage.replace(/[^0-9]/g, ''));
+      processedValue = isNaN(num) ? (currentStep.field === 'estimatedCards' ? 100 : 500) : num;
+    }
+
+    // Update program data
+    if (currentStep.field !== 'complete') {
+      updateProgram({ [currentStep.field]: processedValue });
+    }
+
+    setChatInput('');
+
+    // Move to next question
+    const nextStep = chatStep + 1;
+    if (nextStep < conversationSteps.length) {
+      simulateTyping(conversationSteps[nextStep].question, () => {
+        setChatStep(nextStep);
+      });
+    } else {
+      // Complete - show summary
+      simulateTyping("🎉 Perfect! Your card program is ready. Click 'Complete Program' to finish!", () => {
+        setChatStep(nextStep);
+      });
+    }
+  }, [chatInput, chatStep, addChatMessage, simulateTyping, updateProgram]);
+
+  // Initialize chat when wizard opens in chat mode
+  useEffect(() => {
+    if (showCreateWizard && wizardVariant === 'chat' && chatMessages.length === 0) {
+      simulateTyping(conversationSteps[0].question, () => {
+        setChatStep(0);
+      });
+    }
+  }, [showCreateWizard, wizardVariant, chatMessages.length, simulateTyping]);
+
+  // Auto-scroll chat to bottom
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages, isTyping]);
+
+  // Chat Wizard Modal
+  const renderChatWizard = () => {
+    return (
+      <div className="fixed inset-0 bg-[#2C3E50]/95 backdrop-blur-sm flex items-center justify-center z-50 p-0 sm:p-4">
+        <div className="bg-[#1a2332] sm:rounded-2xl border-0 sm:border-2 border-[#7DD3C0]/30 w-full h-full sm:h-auto sm:max-w-4xl sm:max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+          {/* Header */}
+          <div className="p-4 sm:p-6 border-b border-[#7DD3C0]/20 flex justify-between items-center bg-[#2C3E50]/50">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#7DD3C0] to-[#7DD3C0]/60 flex items-center justify-center text-xl">
+                🤖
+              </div>
+              <div>
+                <h2 className="text-xl sm:text-2xl font-bold text-white">AI Program Assistant</h2>
+                <p className="text-[#7DD3C0] text-xs sm:text-sm">Let's create your card program together</p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setShowCreateWizard(false);
+                setChatMessages([]);
+                setChatStep(0);
+                setChatInput('');
+              }}
+              className="text-[#7DD3C0] hover:text-[#FFD93D] text-3xl font-light transition-colors"
+            >
+              ×
+            </button>
+          </div>
+
+          {/* Chat Messages */}
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+            {chatMessages.map((msg, idx) => (
+              <div key={idx} className={`flex ${msg.isUser ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                  msg.isUser
+                    ? 'bg-[#7DD3C0] text-[#2C3E50]'
+                    : 'bg-[#2C3E50]/50 text-white border border-[#7DD3C0]/20'
+                }`}>
+                  <p className="text-sm sm:text-base">{msg.text}</p>
+                </div>
+              </div>
+            ))}
+
+            {isTyping && (
+              <div className="flex justify-start">
+                <div className="bg-[#2C3E50]/50 text-white border border-[#7DD3C0]/20 rounded-2xl px-4 py-3">
+                  <div className="flex gap-1">
+                    <span className="w-2 h-2 bg-[#7DD3C0] rounded-full animate-bounce"></span>
+                    <span className="w-2 h-2 bg-[#7DD3C0] rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></span>
+                    <span className="w-2 h-2 bg-[#7DD3C0] rounded-full animate-bounce" style={{animationDelay: '0.4s'}}></span>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* Input Area */}
+          <div className="p-4 sm:p-6 border-t border-[#7DD3C0]/20 bg-[#2C3E50]/30">
+            {chatStep < conversationSteps.length - 1 ? (
+              <form onSubmit={handleChatSubmit} className="flex gap-2">
+                <input
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  placeholder="Type your answer..."
+                  className="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-[#7DD3C0] focus:ring-1 focus:ring-[#7DD3C0] outline-none"
+                  autoFocus
+                />
+                <button
+                  type="submit"
+                  disabled={!chatInput.trim() || isTyping}
+                  className="px-6 py-3 bg-[#FFD93D] text-[#2C3E50] rounded-lg font-bold hover:bg-[#FFC700] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  Send
+                </button>
+              </form>
+            ) : (
+              <button
+                onClick={() => {
+                  trackPurchase();
+                  setShowCreateWizard(false);
+                  setChatMessages([]);
+                  setChatStep(0);
+                }}
+                className="w-full px-6 py-3 bg-[#7DD3C0] text-[#2C3E50] rounded-lg font-bold hover:bg-[#6BC3B0] transition-all shadow-lg"
+              >
+                🎉 Complete Program
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Wizard modal JSX - defined here to avoid recreation issues
   const renderWizardModal = () => {
     const showLivePricing = pricingVariant === 'live' && wizardStep > 1 && wizardStep < 5;
@@ -1572,7 +1768,7 @@ const EnfucePortal = () => {
         </main>
       </div>
       
-      {showCreateWizard && renderWizardModal()}
+      {showCreateWizard && (wizardVariant === 'chat' ? renderChatWizard() : renderWizardModal())}
       {selectedProgram && <ProgramDetail program={selectedProgram} />}
     </div>
   );
