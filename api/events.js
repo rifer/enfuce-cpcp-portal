@@ -16,16 +16,11 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    // Check if Blob token is configured
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
-      // Gracefully handle missing token (local development)
-      return res.status(200).json({
-        success: true,
-        message: 'Event received (Blob storage not configured - expected in local dev)',
-        fallback: true,
-        note: 'Events are being tracked in browser localStorage. Deploy to Vercel for persistent storage.'
-      });
-    }
+    // Log available environment variables for debugging
+    console.log('Environment variables check:');
+    console.log('- BLOB_READ_WRITE_TOKEN:', process.env.BLOB_READ_WRITE_TOKEN ? 'SET' : 'NOT SET');
+    console.log('- All BLOB vars:', Object.keys(process.env).filter(k => k.includes('BLOB')));
+    console.log('- All TOKEN vars:', Object.keys(process.env).filter(k => k.includes('TOKEN')));
 
     try {
       const event = req.body;
@@ -72,11 +67,21 @@ export default async function handler(req, res) {
       });
     } catch (error) {
       console.error('Error storing event:', error);
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+
+      // Check if it's a token error specifically
+      if (error.message && error.message.includes('token')) {
+        console.error('TOKEN ERROR DETECTED - Blob storage connection may be misconfigured');
+      }
 
       // Return success even if storage fails (graceful degradation)
       return res.status(200).json({
         success: true,
-        message: 'Event received (storage not configured)',
+        message: 'Event received (storage error - using localStorage fallback)',
         fallback: true,
         error: error.message
       });

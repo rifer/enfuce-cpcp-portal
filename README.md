@@ -196,11 +196,37 @@ After deployment, you can add a custom domain in your Vercel dashboard under:
 
 ### Environment Variables
 
-If you need to add API keys or environment variables:
+**Vercel Blob Storage** is automatically configured when you deploy to Vercel - no setup required! The `BLOB_READ_WRITE_TOKEN` environment variable is automatically provided by Vercel's platform.
+
+This enables:
+- **Persistent A/B test analytics** across all users
+- **Cross-session event tracking** for conversion analysis
+- **Automatic data retention** (last 10,000 events)
+- **Free tier**: 100 GB bandwidth/month included
+
+If you need to add other API keys or environment variables:
 1. Go to your Vercel project dashboard
 2. Navigate to **Settings → Environment Variables**
 3. Add variables with prefix `VITE_` (e.g., `VITE_API_KEY`)
 4. Redeploy for changes to take effect
+
+### A/B Testing Features
+
+This project includes a 2x2 factorial A/B test to optimize conversion:
+
+**Variables Tested:**
+1. **CTA Placement**: Header (A) vs Dashboard (B)
+2. **Pricing Display**: Live/Dynamic vs Final Summary
+
+**Tracking:**
+- Impression → Click → Purchase funnel
+- Conversion rates per variant combination
+- Persistent storage via Vercel Blob
+- Analytics dashboard at `/analytics` route
+
+**Local Development:**
+- Analytics work in localStorage mode
+- Deploy to Vercel for full persistent analytics
 
 ## 🛠️ Tech Stack
 
