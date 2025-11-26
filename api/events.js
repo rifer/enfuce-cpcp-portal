@@ -35,6 +35,7 @@ export default async function handler(req, res) {
       // Read existing events from Blob
       let events = [];
       let existingDataFound = false;
+      let originalEventCount = 0; // Track how many events we loaded
 
       try {
         // First, try to list all blobs to find our file
@@ -64,6 +65,7 @@ export default async function handler(req, res) {
 
                   events = parsed;
                   existingDataFound = true;
+                  originalEventCount = events.length; // Store original count
                   console.log(`Successfully loaded ${events.length} existing events`);
                   console.log(`Sample event IDs: ${events.slice(0, 3).map(e => e.eventId).join(', ')}`);
                 } catch (parseError) {
@@ -99,22 +101,25 @@ export default async function handler(req, res) {
       console.log(`Total events after adding new one: ${events.length}`);
 
       // CRITICAL SAFETY CHECK: Prevent accidental data loss
-      // If we found existing data but now only have 1-2 events, something went wrong
-      if (existingDataFound && events.length < 3) {
-        console.error('CRITICAL ERROR: Existing data found but event array suspiciously small!');
-        console.error(`Event count: ${events.length}, existingDataFound: ${existingDataFound}`);
+      // Only trigger if we LOADED many events but NOW have very few (suspicious data loss)
+      if (originalEventCount >= 10 && events.length < 3) {
+        console.error('CRITICAL ERROR: Loaded many events but array is now suspiciously small!');
+        console.error(`Original count: ${originalEventCount}, Current count: ${events.length}`);
         return res.status(500).json({
           success: false,
-          message: 'Safety check failed - refusing to overwrite data with suspiciously small array',
-          eventCount: events.length,
-          existingDataFound
+          message: 'Safety check failed - suspicious data loss detected',
+          originalCount: originalEventCount,
+          currentCount: events.length
         });
       }
 
-      // Additional safety: If we're about to save and have very few events, double-check
+      // Log current state for debugging
       if (!existingDataFound && events.length === 1) {
-        // This is fine - it's the first event
         console.log('First event ever - initializing blob storage');
+      } else if (existingDataFound && originalEventCount < 5) {
+        console.log(`Building up event history: ${originalEventCount} → ${events.length} events`);
+      } else if (existingDataFound) {
+        console.log(`Appending to existing data: ${originalEventCount} → ${events.length} events`);
       }
 
       // Keep only last 10,000 events to avoid blob getting too large
