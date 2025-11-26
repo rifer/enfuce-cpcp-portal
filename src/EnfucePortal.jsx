@@ -1045,6 +1045,15 @@ const EnfucePortal = () => {
 
     setChatInput('');
 
+    // Track chat step completion
+    if (typeof gtag !== 'undefined') {
+      gtag('event', 'chat_wizard_step_completed', {
+        step: chatStep + 1,
+        field: currentStep.field,
+        step_name: currentStep.question.substring(0, 50)
+      });
+    }
+
     // Move to next question
     const nextStep = chatStep + 1;
     if (nextStep < conversationSteps.length) {
@@ -1062,6 +1071,14 @@ const EnfucePortal = () => {
   // Initialize chat when wizard opens in chat mode
   useEffect(() => {
     if (showCreateWizard && wizardVariant === 'chat' && chatMessages.length === 0) {
+      // Track chat wizard start
+      if (typeof gtag !== 'undefined') {
+        gtag('event', 'chat_wizard_started', {
+          wizard_variant: 'chat',
+          timestamp: new Date().toISOString()
+        });
+      }
+
       simulateTyping(conversationSteps[0].question, () => {
         setChatStep(0);
       });
@@ -1075,18 +1092,37 @@ const EnfucePortal = () => {
 
   // Chat Wizard Modal
   const renderChatWizard = () => {
+    const pricing = calculatePricing(newProgram);
+
+    const getCardBackground = () => {
+      if (newProgram.cardBackgroundImage) {
+        return `url(${newProgram.cardBackgroundImage})`;
+      }
+
+      const designs = {
+        corporate: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+        premium: 'linear-gradient(135deg, #d97706 0%, #ca8a04 100%)',
+        ocean: 'linear-gradient(135deg, #06b6d4 0%, #1d4ed8 100%)',
+        sunset: 'linear-gradient(135deg, #f97316 0%, #ec4899 100%)',
+        custom: newProgram.cardColor
+      };
+
+      return designs[newProgram.cardDesign] || designs.corporate;
+    };
+
     return (
-      <div className="fixed inset-0 bg-[#2C3E50]/95 backdrop-blur-sm flex items-center justify-center z-50 p-0 sm:p-4">
-        <div className="bg-[#1a2332] sm:rounded-2xl border-0 sm:border-2 border-[#7DD3C0]/30 w-full h-full sm:h-auto sm:max-w-4xl sm:max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+      <div className="fixed inset-0 bg-[#1a2332] z-50 flex overflow-hidden">
+        {/* Main Chat Area */}
+        <div className="flex-1 flex flex-col">
           {/* Header */}
-          <div className="p-4 sm:p-6 border-b border-[#7DD3C0]/20 flex justify-between items-center bg-[#2C3E50]/50">
+          <div className="p-6 border-b border-[#7DD3C0]/20 flex justify-between items-center bg-[#2C3E50]/50">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#7DD3C0] to-[#7DD3C0]/60 flex items-center justify-center text-xl">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#7DD3C0] to-[#7DD3C0]/60 flex items-center justify-center text-2xl">
                 🤖
               </div>
               <div>
-                <h2 className="text-xl sm:text-2xl font-bold text-white">AI Program Assistant</h2>
-                <p className="text-[#7DD3C0] text-xs sm:text-sm">Let's create your card program together</p>
+                <h2 className="text-2xl font-bold text-white">AI Program Assistant</h2>
+                <p className="text-[#7DD3C0] text-sm">Let's create your card program together</p>
               </div>
             </div>
             <button
@@ -1095,30 +1131,37 @@ const EnfucePortal = () => {
                 setChatMessages([]);
                 setChatStep(0);
                 setChatInput('');
+                // Track chat wizard abandonment
+                if (typeof gtag !== 'undefined') {
+                  gtag('event', 'chat_wizard_abandoned', {
+                    step: chatStep,
+                    messages_count: chatMessages.length
+                  });
+                }
               }}
-              className="text-[#7DD3C0] hover:text-[#FFD93D] text-3xl font-light transition-colors"
+              className="text-[#7DD3C0] hover:text-[#FFD93D] text-4xl font-light transition-colors"
             >
               ×
             </button>
           </div>
 
           {/* Chat Messages */}
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+          <div className="flex-1 overflow-y-auto p-8 space-y-4">
             {chatMessages.map((msg, idx) => (
               <div key={idx} className={`flex ${msg.isUser ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                <div className={`max-w-[70%] rounded-2xl px-5 py-4 ${
                   msg.isUser
                     ? 'bg-[#7DD3C0] text-[#2C3E50]'
                     : 'bg-[#2C3E50]/50 text-white border border-[#7DD3C0]/20'
                 }`}>
-                  <p className="text-sm sm:text-base">{msg.text}</p>
+                  <p className="text-base">{msg.text}</p>
                 </div>
               </div>
             ))}
 
             {isTyping && (
               <div className="flex justify-start">
-                <div className="bg-[#2C3E50]/50 text-white border border-[#7DD3C0]/20 rounded-2xl px-4 py-3">
+                <div className="bg-[#2C3E50]/50 text-white border border-[#7DD3C0]/20 rounded-2xl px-5 py-4">
                   <div className="flex gap-1">
                     <span className="w-2 h-2 bg-[#7DD3C0] rounded-full animate-bounce"></span>
                     <span className="w-2 h-2 bg-[#7DD3C0] rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></span>
@@ -1131,21 +1174,21 @@ const EnfucePortal = () => {
           </div>
 
           {/* Input Area */}
-          <div className="p-4 sm:p-6 border-t border-[#7DD3C0]/20 bg-[#2C3E50]/30">
+          <div className="p-6 border-t border-[#7DD3C0]/20 bg-[#2C3E50]/30">
             {chatStep < conversationSteps.length - 1 ? (
-              <form onSubmit={handleChatSubmit} className="flex gap-2">
+              <form onSubmit={handleChatSubmit} className="flex gap-3">
                 <input
                   type="text"
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                   placeholder="Type your answer..."
-                  className="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-[#7DD3C0] focus:ring-1 focus:ring-[#7DD3C0] outline-none"
+                  className="flex-1 bg-slate-800 border border-slate-600 rounded-xl px-5 py-4 text-white placeholder-slate-500 focus:border-[#7DD3C0] focus:ring-2 focus:ring-[#7DD3C0] outline-none text-lg"
                   autoFocus
                 />
                 <button
                   type="submit"
                   disabled={!chatInput.trim() || isTyping}
-                  className="px-6 py-3 bg-[#FFD93D] text-[#2C3E50] rounded-lg font-bold hover:bg-[#FFC700] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  className="px-8 py-4 bg-[#FFD93D] text-[#2C3E50] rounded-xl font-bold hover:bg-[#FFC700] disabled:opacity-50 disabled:cursor-not-allowed transition-all text-lg"
                 >
                   Send
                 </button>
@@ -1154,15 +1197,198 @@ const EnfucePortal = () => {
               <button
                 onClick={() => {
                   trackPurchase();
+                  // Track chat wizard completion
+                  if (typeof gtag !== 'undefined') {
+                    gtag('event', 'chat_wizard_completed', {
+                      messages_count: chatMessages.length,
+                      program_name: newProgram.name
+                    });
+                  }
                   setShowCreateWizard(false);
                   setChatMessages([]);
                   setChatStep(0);
                 }}
-                className="w-full px-6 py-3 bg-[#7DD3C0] text-[#2C3E50] rounded-lg font-bold hover:bg-[#6BC3B0] transition-all shadow-lg"
+                className="w-full px-8 py-4 bg-[#7DD3C0] text-[#2C3E50] rounded-xl font-bold hover:bg-[#6BC3B0] transition-all shadow-lg text-lg"
               >
                 🎉 Complete Program
               </button>
             )}
+          </div>
+        </div>
+
+        {/* Side Panel - Program Summary */}
+        <div className="w-[480px] bg-[#0f1419] border-l border-[#7DD3C0]/20 overflow-y-auto hidden lg:block">
+          <div className="p-6 space-y-6">
+            {/* Program Summary Header */}
+            <div>
+              <h3 className="text-xl font-bold text-white mb-2">Program Summary</h3>
+              <p className="text-slate-400 text-sm">Real-time preview of your card program</p>
+            </div>
+
+            {/* Card Preview */}
+            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700/50">
+              <div className="text-sm text-slate-400 mb-4 font-semibold">Card Preview</div>
+              <div className="relative w-full h-48">
+                <div className="absolute inset-0 bg-gradient-to-br from-cyan-500 via-blue-600 to-purple-700 rounded-2xl shadow-2xl transform rotate-2" />
+                <div
+                  className="absolute inset-0 rounded-2xl shadow-xl border border-slate-600/50 p-6 flex flex-col justify-between"
+                  style={{
+                    background: getCardBackground(),
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center'
+                  }}
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="w-12 h-10 rounded bg-gradient-to-br from-yellow-400 to-yellow-600" />
+                    <div className="text-right">
+                      <div className="text-white font-bold text-lg drop-shadow-lg">ENFUCE</div>
+                      <div className="text-slate-200 text-xs drop-shadow">{newProgram.scheme || 'VISA'}</div>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-slate-100 font-mono tracking-widest text-lg mb-2 drop-shadow-lg">
+                      •••• •••• •••• 4242
+                    </div>
+                    <div className="flex justify-between items-end">
+                      <div>
+                        <div className="text-slate-300 text-xs drop-shadow">CARDHOLDER</div>
+                        <div className="text-white text-sm drop-shadow-lg">JOHN DOE</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-slate-300 text-xs drop-shadow">VALID THRU</div>
+                        <div className="text-white text-sm drop-shadow-lg">12/28</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Program Details */}
+            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700/50 space-y-4">
+              <div className="text-sm font-semibold text-slate-300 mb-3">Program Details</div>
+
+              {newProgram.name && (
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">Program Name</div>
+                  <div className="text-white font-medium">{newProgram.name}</div>
+                </div>
+              )}
+
+              {newProgram.type && (
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">Card Type</div>
+                  <div className="text-white font-medium capitalize">{newProgram.type}</div>
+                </div>
+              )}
+
+              {newProgram.scheme && (
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">Card Network</div>
+                  <div className="text-white font-medium">{newProgram.scheme}</div>
+                </div>
+              )}
+
+              {newProgram.targetAudience && (
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">Target Audience</div>
+                  <div className="text-white font-medium">{newProgram.targetAudience}</div>
+                </div>
+              )}
+
+              {newProgram.estimatedCards && (
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">Estimated Cards</div>
+                  <div className="text-white font-medium">{newProgram.estimatedCards.toLocaleString()}</div>
+                </div>
+              )}
+
+              {newProgram.budgetPerCard && (
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">Budget per Card</div>
+                  <div className="text-white font-medium">€{newProgram.budgetPerCard}</div>
+                </div>
+              )}
+
+              {newProgram.features && newProgram.features.length > 0 && (
+                <div>
+                  <div className="text-xs text-slate-500 mb-2">Features</div>
+                  <div className="flex flex-wrap gap-2">
+                    {newProgram.features.map((feature, idx) => (
+                      <span key={idx} className="px-3 py-1 bg-[#7DD3C0]/20 text-[#7DD3C0] rounded-full text-xs">
+                        {feature}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Pricing Breakdown */}
+            {(newProgram.estimatedCards || newProgram.budgetPerCard) && (
+              <div className="bg-gradient-to-br from-[#7DD3C0]/10 to-[#FFD93D]/10 rounded-xl p-6 border border-[#7DD3C0]/30">
+                <div className="text-sm font-semibold text-[#7DD3C0] mb-4">💰 Estimated Pricing</div>
+
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-300 text-sm">Setup Fee</span>
+                    <span className="text-white font-medium">€{pricing.breakdown.setupFee}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-300 text-sm">Card Production</span>
+                    <span className="text-white font-medium">€{Math.round(pricing.breakdown.formFactorCost)}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-300 text-sm">Annual Platform Fee</span>
+                    <span className="text-white font-medium">€{Math.round(pricing.breakdown.monthlyFee * 12)}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-300 text-sm">Transaction Fees (Est.)</span>
+                    <span className="text-white font-medium">€{Math.round(pricing.breakdown.annualTransactionFees)}</span>
+                  </div>
+
+                  <div className="border-t border-[#7DD3C0]/30 pt-3 mt-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-white font-bold">Total (First Year)</span>
+                      <span className="text-[#FFD93D] font-bold text-xl">€{pricing.total.toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-3">
+                    <div className="bg-slate-800/50 rounded-lg p-3">
+                      <div className="text-xs text-slate-400 mb-1">Per Card</div>
+                      <div className="text-white font-semibold">€{pricing.perCard}</div>
+                    </div>
+                    <div className="bg-slate-800/50 rounded-lg p-3">
+                      <div className="text-xs text-slate-400 mb-1">Monthly</div>
+                      <div className="text-white font-semibold">€{pricing.monthly}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Progress Indicator */}
+            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700/50">
+              <div className="text-sm text-slate-400 mb-3">Progress</div>
+              <div className="flex items-center gap-3">
+                <div className="flex-1 bg-slate-700 rounded-full h-2">
+                  <div
+                    className="bg-gradient-to-r from-[#7DD3C0] to-[#FFD93D] h-2 rounded-full transition-all duration-500"
+                    style={{ width: `${(chatStep / (conversationSteps.length - 1)) * 100}%` }}
+                  />
+                </div>
+                <div className="text-white font-semibold text-sm">
+                  {Math.round((chatStep / (conversationSteps.length - 1)) * 100)}%
+                </div>
+              </div>
+              <div className="text-xs text-slate-400 mt-2">
+                Step {chatStep + 1} of {conversationSteps.length}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1620,6 +1846,113 @@ const EnfucePortal = () => {
               );
             })}
           </div>
+        </div>
+
+        {/* Chat Wizard Analytics */}
+        <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-6">
+          <h2 className="text-lg font-semibold text-white mb-6">🤖 Chat Wizard Analytics</h2>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Wizard Variant Distribution */}
+            <div className="bg-slate-900/50 rounded-xl border border-slate-700 p-5">
+              <h3 className="text-white font-semibold mb-4">Wizard Type Distribution</h3>
+              <div className="space-y-3">
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-slate-400 text-sm">Traditional Wizard</span>
+                    <span className="text-white font-medium">{analyticsData?.chatWizard?.traditionalCount || 0}</span>
+                  </div>
+                  <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-blue-500 to-cyan-500"
+                      style={{width: `${analyticsData?.chatWizard?.traditionalPercent || 0}%`}}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-slate-400 text-sm">Chat Wizard</span>
+                    <span className="text-white font-medium">{analyticsData?.chatWizard?.chatCount || 0}</span>
+                  </div>
+                  <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-[#7DD3C0] to-[#FFD93D]"
+                      style={{width: `${analyticsData?.chatWizard?.chatPercent || 0}%`}}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Chat Wizard Completion Rates */}
+            <div className="bg-slate-900/50 rounded-xl border border-slate-700 p-5">
+              <h3 className="text-white font-semibold mb-4">Chat Wizard Metrics</h3>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400 text-sm">Started</span>
+                  <span className="text-white font-medium">{analyticsData?.chatWizard?.started || 0}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400 text-sm">Completed</span>
+                  <span className="text-emerald-400 font-medium">{analyticsData?.chatWizard?.completed || 0}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400 text-sm">Abandoned</span>
+                  <span className="text-red-400 font-medium">{analyticsData?.chatWizard?.abandoned || 0}</span>
+                </div>
+                <div className="pt-3 border-t border-slate-700">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-400 text-sm">Completion Rate</span>
+                    <span className="text-[#7DD3C0] font-semibold text-lg">
+                      {analyticsData?.chatWizard?.completionRate || 0}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Average Engagement */}
+            <div className="bg-slate-900/50 rounded-xl border border-slate-700 p-5">
+              <h3 className="text-white font-semibold mb-4">Engagement Metrics</h3>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400 text-sm">Avg. Messages</span>
+                  <span className="text-white font-medium">{analyticsData?.chatWizard?.avgMessages || 0}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400 text-sm">Avg. Steps Completed</span>
+                  <span className="text-white font-medium">{analyticsData?.chatWizard?.avgStepsCompleted || 0}/10</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400 text-sm">Most Common Drop-off</span>
+                  <span className="text-amber-400 font-medium">Step {analyticsData?.chatWizard?.commonDropoffStep || '-'}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Step-by-Step Funnel for Chat Wizard */}
+          {analyticsData?.chatWizard?.stepFunnel && (
+            <div className="mt-6">
+              <h3 className="text-white font-semibold mb-4">Chat Wizard Step Completion</h3>
+              <div className="space-y-2">
+                {analyticsData.chatWizard.stepFunnel.map((step, idx) => (
+                  <div key={idx}>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-slate-400 text-sm">Step {idx + 1}: {step.name}</span>
+                      <span className="text-white font-medium">{step.count} ({step.rate}%)</span>
+                    </div>
+                    <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-[#7DD3C0] to-[#FFD93D]"
+                        style={{width: `${step.rate}%`}}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Refresh Button */}
