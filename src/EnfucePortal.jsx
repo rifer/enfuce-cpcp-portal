@@ -872,13 +872,15 @@ const EnfucePortal = () => {
   const CreateProgramWizard = () => {
     const showLivePricing = pricingVariant === 'live' && wizardStep > 1 && wizardStep < 5;
     const scrollContainerRef = useRef(null);
+    const prevStepRef = useRef(wizardStep);
 
-    // Prevent scroll jump on re-renders
+    // Only scroll to top when step actually changes
     useEffect(() => {
-      if (scrollContainerRef.current) {
+      if (prevStepRef.current !== wizardStep && scrollContainerRef.current) {
         scrollContainerRef.current.scrollTop = 0;
+        prevStepRef.current = wizardStep;
       }
-    }, [wizardStep]); // Only scroll to top when step changes
+    });
 
     return (
       <div className="fixed inset-0 bg-[#2C3E50]/95 backdrop-blur-sm flex items-center justify-center z-50 p-0 sm:p-4" onClick={(e) => e.target === e.currentTarget && setShowCreateWizard(false)}>
