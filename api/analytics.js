@@ -17,8 +17,14 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     // Check if Blob token is configured
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    // Try multiple possible token names
+    const token = process.env.BLOB_READ_WRITE_TOKEN ||
+                  process.env.ABTEST_ANALYTICS_READ_WRITE_TOKEN ||
+                  process.env.KV_REST_API_TOKEN;
+
+    if (!token) {
       // Return empty analytics for local development
+      console.log('Available env vars:', Object.keys(process.env).filter(k => k.includes('BLOB') || k.includes('TOKEN')));
       return res.status(200).json({
         success: true,
         message: 'Blob storage not configured (expected in local dev)',
