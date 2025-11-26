@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 
 const EnfucePortal = () => {
   const [activeSection, setActiveSection] = useState('dashboard');
@@ -481,7 +481,7 @@ const EnfucePortal = () => {
     </div>
   );
 
-  const WizardStep1 = useMemo(() => () => (
+  const WizardStep1 = () => (
     <div className="space-y-6">
       <div>
         <label className="block text-sm text-slate-300 mb-2">Program Name</label>
@@ -494,7 +494,7 @@ const EnfucePortal = () => {
           autoComplete="off"
         />
       </div>
-      
+
       <div>
         <label className="block text-sm text-slate-300 mb-2">Program Type</label>
         <div className="grid grid-cols-2 gap-3">
@@ -523,9 +523,9 @@ const EnfucePortal = () => {
         </div>
       </div>
     </div>
-  ), [newProgram.name, newProgram.type, updateProgram]);
+  );
 
-  const WizardStep2 = useMemo(() => () => (
+  const WizardStep2 = () => (
     <div className="space-y-6">
       <div>
         <label className="block text-sm text-slate-300 mb-2">Funding Model</label>
@@ -631,9 +631,9 @@ const EnfucePortal = () => {
         <div className="text-xs text-slate-500 mt-1">Used for pricing calculation</div>
       </div>
     </div>
-  ), [newProgram.fundingModel, newProgram.formFactor, newProgram.scheme, newProgram.currency, newProgram.estimatedCards, updateProgram]);
+  );
 
-  const WizardStep3 = useMemo(() => () => (
+  const WizardStep3 = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -711,9 +711,9 @@ const EnfucePortal = () => {
         </div>
       </div>
     </div>
-  ), [newProgram.currency, newProgram.dailyLimit, newProgram.monthlyLimit, newProgram.mccRestrictions, updateProgram]);
+  );
 
-  const WizardStep4 = useMemo(() => () => (
+  const WizardStep4 = () => (
     <div className="space-y-6">
       <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700">
         <div className="text-sm text-slate-400 mb-4">Card Preview</div>
@@ -778,9 +778,9 @@ const EnfucePortal = () => {
         </div>
       </div>
     </div>
-  ), [newProgram.scheme]);
+  );
 
-  const WizardStep5 = useMemo(() => () => {
+  const WizardStep5 = () => {
     const pricing = calculatePricing(newProgram);
 
     return (
@@ -867,7 +867,7 @@ const EnfucePortal = () => {
         </div>
       </div>
     );
-  }, [newProgram]);
+  };
 
   const CreateProgramWizard = () => {
     const showLivePricing = pricingVariant === 'live' && wizardStep > 1 && wizardStep < 5;
