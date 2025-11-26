@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const EnfucePortal = () => {
   const [activeSection, setActiveSection] = useState('dashboard');
   const [showCreateWizard, setShowCreateWizard] = useState(false);
   const [wizardStep, setWizardStep] = useState(1);
   const [selectedProgram, setSelectedProgram] = useState(null);
+  const [abTestVariant, setAbTestVariant] = useState(null);
   const [newProgram, setNewProgram] = useState({
     name: '',
     type: '',
@@ -17,6 +18,111 @@ const EnfucePortal = () => {
     mccRestrictions: [],
     countries: []
   });
+
+  // A/B Test: Initialize variant assignment and analytics
+  useEffect(() => {
+    // Check if user already has a variant assigned
+    let variant = localStorage.getItem('abtest_cta_variant');
+
+    if (!variant) {
+      // Randomly assign 50/50 split
+      variant = Math.random() < 0.5 ? 'A' : 'B';
+      localStorage.setItem('abtest_cta_variant', variant);
+
+      // Initialize analytics data
+      const analytics = {
+        variant,
+        assignedAt: new Date().toISOString(),
+        impressions: 0,
+        clicks: 0,
+        conversions: 0
+      };
+      localStorage.setItem('abtest_analytics', JSON.stringify(analytics));
+    }
+
+    setAbTestVariant(variant);
+
+    // Track impression (page load)
+    trackImpression();
+
+    // Make analytics accessible in console for debugging
+    window.getABTestAnalytics = () => {
+      const analytics = JSON.parse(localStorage.getItem('abtest_analytics') || '{}');
+      const clickRate = analytics.impressions > 0
+        ? ((analytics.clicks / analytics.impressions) * 100).toFixed(2)
+        : 0;
+      const conversionRate = analytics.clicks > 0
+        ? ((analytics.conversions / analytics.clicks) * 100).toFixed(2)
+        : 0;
+
+      console.table({
+        'Variant': analytics.variant,
+        'Assigned At': analytics.assignedAt,
+        'Impressions': analytics.impressions,
+        'Clicks': analytics.clicks,
+        'Conversions': analytics.conversions,
+        'Click Rate (%)': clickRate,
+        'Conversion Rate (%)': conversionRate,
+        'Last Click Source': analytics.clickSource || 'N/A'
+      });
+
+      return analytics;
+    };
+
+    window.resetABTest = () => {
+      localStorage.removeItem('abtest_cta_variant');
+      localStorage.removeItem('abtest_analytics');
+      console.log('A/B test data cleared. Refresh the page to get a new variant assignment.');
+    };
+
+    console.log('📊 A/B Test Active - Variant:', variant);
+    console.log('💡 Use window.getABTestAnalytics() to view analytics');
+    console.log('💡 Use window.resetABTest() to reset and get reassigned');
+  }, []);
+
+  // Track page impression
+  const trackImpression = () => {
+    const analyticsData = JSON.parse(localStorage.getItem('abtest_analytics') || '{}');
+    analyticsData.impressions = (analyticsData.impressions || 0) + 1;
+    analyticsData.lastImpression = new Date().toISOString();
+    localStorage.setItem('abtest_analytics', JSON.stringify(analyticsData));
+  };
+
+  // Track CTA click
+  const trackCTAClick = (source) => {
+    const analyticsData = JSON.parse(localStorage.getItem('abtest_analytics') || '{}');
+    analyticsData.clicks = (analyticsData.clicks || 0) + 1;
+    analyticsData.lastClick = new Date().toISOString();
+    analyticsData.clickSource = source;
+    localStorage.setItem('abtest_analytics', JSON.stringify(analyticsData));
+
+    // Log to console for debugging
+    console.log('A/B Test Click:', {
+      variant: abTestVariant,
+      source,
+      analytics: analyticsData
+    });
+  };
+
+  // Track conversion (wizard completion)
+  const trackConversion = () => {
+    const analyticsData = JSON.parse(localStorage.getItem('abtest_analytics') || '{}');
+    analyticsData.conversions = (analyticsData.conversions || 0) + 1;
+    analyticsData.lastConversion = new Date().toISOString();
+    localStorage.setItem('abtest_analytics', JSON.stringify(analyticsData));
+
+    // Log to console for debugging
+    console.log('A/B Test Conversion:', {
+      variant: abTestVariant,
+      analytics: analyticsData
+    });
+  };
+
+  // Handle opening wizard
+  const handleOpenWizard = (source) => {
+    trackCTAClick(source);
+    setShowCreateWizard(true);
+  };
 
   const cardPrograms = [
     { id: 1, name: 'UN Delegate Prepaid', type: 'Prepaid', status: 'Active', cards: 2847, spend: '€1.2M', scheme: 'Visa' },
@@ -511,6 +617,8 @@ const EnfucePortal = () => {
               if (wizardStep < 5) {
                 setWizardStep(wizardStep + 1);
               } else {
+                // Track conversion when wizard is completed
+                trackConversion();
                 setShowCreateWizard(false);
                 setWizardStep(1);
               }
@@ -610,12 +718,15 @@ const EnfucePortal = () => {
           <h1 className="text-2xl font-bold text-white">Dashboard</h1>
           <p className="text-slate-400 mt-1">Overview of your card programs</p>
         </div>
-        <button
-          onClick={() => setShowCreateWizard(true)}
-          className="px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg font-medium hover:from-cyan-400 hover:to-blue-400 transition-all flex items-center gap-2"
-        >
-          <span>+</span> New Program
-        </button>
+        {/* A/B Test: Show CTA in dashboard only for Variant B (control) */}
+        {abTestVariant === 'B' && (
+          <button
+            onClick={() => handleOpenWizard('dashboard')}
+            className="px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg font-medium hover:from-cyan-400 hover:to-blue-400 transition-all flex items-center gap-2"
+          >
+            <span>+</span> New Program
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-4 gap-4">
@@ -771,6 +882,15 @@ const EnfucePortal = () => {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            {/* A/B Test: Show CTA in header for Variant A */}
+            {abTestVariant === 'A' && (
+              <button
+                onClick={() => handleOpenWizard('header')}
+                className="px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg font-medium hover:from-cyan-400 hover:to-blue-400 transition-all flex items-center gap-2"
+              >
+                <span>+</span> New Program
+              </button>
+            )}
             <button className="p-2 text-slate-400 hover:text-white relative">
               🔔
               <span className="absolute top-1 right-1 w-2 h-2 bg-cyan-500 rounded-full" />
