@@ -328,12 +328,12 @@ const EnfucePortal = () => {
 
   const StatusBadge = ({ status }) => {
     const colors = {
-      'Active': 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
-      'Draft': 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+      'Active': 'bg-[#7DD3C0]/20 text-[#7DD3C0] border-[#7DD3C0]/40',
+      'Draft': 'bg-[#FFD93D]/20 text-[#FFD93D] border-[#FFD93D]/40',
       'Suspended': 'bg-red-500/20 text-red-300 border-red-500/30'
     };
     return (
-      <span className={`px-2 py-0.5 text-xs font-medium rounded border ${colors[status]}`}>
+      <span className={`px-2.5 py-1 text-xs font-bold rounded-md border ${colors[status]} uppercase tracking-wide`}>
         {status}
       </span>
     );
@@ -881,16 +881,16 @@ const EnfucePortal = () => {
     }, [wizardStep]); // Only scroll to top when step changes
 
     return (
-      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={(e) => e.target === e.currentTarget && setShowCreateWizard(false)}>
-        <div className={`bg-slate-900 rounded-2xl border border-slate-700 w-full ${showLivePricing ? 'max-w-6xl' : 'max-w-3xl'} max-h-[90vh] overflow-hidden flex flex-col`} onClick={(e) => e.stopPropagation()}>
-          <div className="p-6 border-b border-slate-700 flex justify-between items-center">
+      <div className="fixed inset-0 bg-[#2C3E50]/95 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={(e) => e.target === e.currentTarget && setShowCreateWizard(false)}>
+        <div className={`bg-[#1a2332] rounded-2xl border-2 border-[#7DD3C0]/30 w-full ${showLivePricing ? 'max-w-6xl' : 'max-w-3xl'} max-h-[90vh] overflow-hidden flex flex-col shadow-2xl`} onClick={(e) => e.stopPropagation()}>
+          <div className="p-6 border-b border-[#7DD3C0]/20 flex justify-between items-center bg-[#2C3E50]/50">
             <div>
-              <h2 className="text-xl font-bold text-white">Create Card Program</h2>
-              <p className="text-slate-400 text-sm mt-1">Configure your new card program</p>
+              <h2 className="text-2xl font-bold text-white">Create Card Program</h2>
+              <p className="text-[#7DD3C0] text-sm mt-1">Configure your new card program</p>
             </div>
             <button
               onClick={() => {setShowCreateWizard(false); setWizardStep(1);}}
-              className="text-slate-400 hover:text-white text-2xl"
+              className="text-[#7DD3C0] hover:text-[#FFD93D] text-3xl font-light transition-colors"
             >
               ×
             </button>
@@ -914,13 +914,13 @@ const EnfucePortal = () => {
             )}
           </div>
 
-          <div className="p-6 border-t border-slate-700 flex justify-between">
+          <div className="p-6 border-t border-[#7DD3C0]/20 flex justify-between bg-[#2C3E50]/30">
             <button
               onClick={() => setWizardStep(Math.max(1, wizardStep - 1))}
-              className={`px-6 py-2.5 rounded-lg font-medium transition-all ${
+              className={`px-6 py-2.5 rounded-lg font-semibold transition-all ${
                 wizardStep === 1
                   ? 'text-slate-600 cursor-not-allowed'
-                  : 'text-slate-300 hover:bg-slate-800'
+                  : 'text-[#7DD3C0] hover:bg-[#2C3E50] border border-[#7DD3C0]/30'
               }`}
               disabled={wizardStep === 1}
             >
@@ -937,10 +937,10 @@ const EnfucePortal = () => {
                   setWizardStep(1);
                 }
               }}
-              className={`px-6 py-2.5 rounded-lg font-medium transition-all ${
+              className={`px-8 py-2.5 rounded-lg font-bold transition-all ${
                 wizardStep === 5
-                  ? 'bg-gradient-to-r from-emerald-500 to-green-500 text-white hover:from-emerald-400 hover:to-green-400'
-                  : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:from-cyan-400 hover:to-blue-400'
+                  ? 'bg-[#7DD3C0] text-[#2C3E50] hover:bg-[#6BC3B0] shadow-lg'
+                  : 'bg-[#FFD93D] text-[#2C3E50] hover:bg-[#FFC700] shadow-lg'
               }`}
             >
               {wizardStep === 5 ? '🛒 Purchase Program' : 'Continue'}
@@ -952,61 +952,65 @@ const EnfucePortal = () => {
   };
 
   const ProgramDetail = ({ program }) => (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-900 rounded-2xl border border-slate-700 w-full max-w-4xl max-h-[90vh] overflow-hidden">
-        <div className="p-6 border-b border-slate-700 flex justify-between items-center">
+    <div className="fixed inset-0 bg-[#2C3E50]/95 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-[#1a2332] rounded-2xl border-2 border-[#7DD3C0]/30 w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl">
+        <div className="p-6 border-b border-[#7DD3C0]/20 flex justify-between items-center bg-[#2C3E50]/50">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-2xl">
+            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#7DD3C0] to-[#7DD3C0]/60 flex items-center justify-center text-3xl shadow-lg">
               💳
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">{program.name}</h2>
+              <h2 className="text-2xl font-bold text-white">{program.name}</h2>
               <div className="flex items-center gap-2 mt-1">
                 <StatusBadge status={program.status} />
-                <span className="text-slate-400 text-sm">{program.scheme}</span>
+                <span className="text-[#7DD3C0] text-sm font-medium">{program.scheme}</span>
               </div>
             </div>
           </div>
-          <button 
+          <button
             onClick={() => setSelectedProgram(null)}
-            className="text-slate-400 hover:text-white text-2xl"
+            className="text-[#7DD3C0] hover:text-[#FFD93D] text-3xl font-light transition-colors"
           >
             ×
           </button>
         </div>
-        
+
         <div className="p-6 overflow-y-auto">
           <div className="grid grid-cols-4 gap-4 mb-6">
-            <StatsCard icon="💳" label="Active Cards" value={program.cards.toLocaleString()} color="text-cyan-400" />
-            <StatsCard icon="💰" label="Total Spend" value={program.spend} color="text-emerald-400" />
-            <StatsCard icon="📊" label="Avg Transaction" value="€47.20" color="text-amber-400" />
+            <StatsCard icon="💳" label="Active Cards" value={program.cards.toLocaleString()} color="text-[#7DD3C0]" />
+            <StatsCard icon="💰" label="Total Spend" value={program.spend} color="text-[#FFD93D]" />
+            <StatsCard icon="📊" label="Avg Transaction" value="€47.20" color="text-[#7DD3C0]" />
             <StatsCard icon="🔒" label="Declined" value="2.1%" color="text-red-400" />
           </div>
 
           <div className="grid grid-cols-2 gap-6">
-            <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-5">
-              <h3 className="text-white font-semibold mb-4">Spend Controls</h3>
+            <div className="bg-[#2C3E50]/50 rounded-xl border border-[#7DD3C0]/20 p-5">
+              <h3 className="text-white font-bold mb-4 flex items-center gap-2">
+                <span className="text-[#7DD3C0]">⚙️</span> Spend Controls
+              </h3>
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-slate-400">Daily Limit</span>
-                  <span className="text-white font-medium">€500</span>
+                  <span className="text-[#7DD3C0] font-semibold">€500</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-slate-400">Monthly Limit</span>
-                  <span className="text-white font-medium">€5,000</span>
+                  <span className="text-[#7DD3C0] font-semibold">€5,000</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-slate-400">Per Transaction</span>
-                  <span className="text-white font-medium">€250</span>
+                  <span className="text-[#7DD3C0] font-semibold">€250</span>
                 </div>
               </div>
             </div>
 
-            <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-5">
-              <h3 className="text-white font-semibold mb-4">Allowed Categories</h3>
+            <div className="bg-[#2C3E50]/50 rounded-xl border border-[#7DD3C0]/20 p-5">
+              <h3 className="text-white font-bold mb-4 flex items-center gap-2">
+                <span className="text-[#7DD3C0]">🏷️</span> Allowed Categories
+              </h3>
               <div className="flex flex-wrap gap-2">
                 {['🍽️ Restaurants', '✈️ Airlines', '🏨 Hotels', '🚕 Transport'].map(cat => (
-                  <span key={cat} className="px-3 py-1 bg-slate-700/50 rounded-lg text-sm text-slate-300">
+                  <span key={cat} className="px-3 py-1 bg-[#7DD3C0]/10 border border-[#7DD3C0]/30 rounded-lg text-sm text-[#7DD3C0] font-medium">
                     {cat}
                   </span>
                 ))}
@@ -1015,13 +1019,13 @@ const EnfucePortal = () => {
           </div>
 
           <div className="mt-6 flex gap-3">
-            <button className="flex-1 py-3 bg-cyan-500/20 text-cyan-300 rounded-lg font-medium hover:bg-cyan-500/30 transition-all border border-cyan-500/30">
+            <button className="flex-1 py-3 bg-[#FFD93D] text-[#2C3E50] rounded-lg font-bold hover:bg-[#FFC700] transition-all shadow-md">
               Edit Configuration
             </button>
-            <button className="flex-1 py-3 bg-slate-700/50 text-slate-300 rounded-lg font-medium hover:bg-slate-700 transition-all border border-slate-600">
+            <button className="flex-1 py-3 bg-[#2C3E50] text-[#7DD3C0] rounded-lg font-semibold hover:bg-[#2C3E50]/80 transition-all border border-[#7DD3C0]/30">
               Issue New Card
             </button>
-            <button className="flex-1 py-3 bg-slate-700/50 text-slate-300 rounded-lg font-medium hover:bg-slate-700 transition-all border border-slate-600">
+            <button className="flex-1 py-3 bg-[#2C3E50] text-[#7DD3C0] rounded-lg font-semibold hover:bg-[#2C3E50]/80 transition-all border border-[#7DD3C0]/30">
               View Transactions
             </button>
           </div>
@@ -1055,17 +1059,17 @@ const EnfucePortal = () => {
         <StatsCard icon="✅" label="Approval Rate" value="97.8%" change={2} color="text-[#FFD93D]" />
       </div>
 
-      <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl overflow-hidden">
-        <div className="p-5 border-b border-slate-700/50 flex justify-between items-center">
-          <h2 className="text-lg font-semibold text-white">Card Programs</h2>
+      <div className="bg-[#1a2332] backdrop-blur border-2 border-[#7DD3C0]/20 rounded-xl overflow-hidden shadow-lg">
+        <div className="p-5 border-b border-[#7DD3C0]/20 flex justify-between items-center bg-[#2C3E50]/30">
+          <h2 className="text-lg font-bold text-white">Card Programs</h2>
           <div className="flex gap-2">
             {['All', 'Active', 'Draft'].map(filter => (
               <button
                 key={filter}
-                className={`px-3 py-1 rounded-lg text-sm ${
-                  filter === 'All' 
-                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' 
-                    : 'text-slate-400 hover:bg-slate-700'
+                className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${
+                  filter === 'All'
+                    ? 'bg-[#7DD3C0]/20 text-[#7DD3C0] border border-[#7DD3C0]/40'
+                    : 'text-slate-400 hover:bg-[#2C3E50] hover:text-[#7DD3C0]'
                 }`}
               >
                 {filter}
@@ -1073,33 +1077,33 @@ const EnfucePortal = () => {
             ))}
           </div>
         </div>
-        <div className="divide-y divide-slate-700/50">
+        <div className="divide-y divide-[#7DD3C0]/10">
           {cardPrograms.map(program => (
-            <div 
+            <div
               key={program.id}
               onClick={() => setSelectedProgram(program)}
-              className="p-5 flex items-center justify-between hover:bg-slate-800/50 cursor-pointer transition-all"
+              className="p-5 flex items-center justify-between hover:bg-[#2C3E50]/50 cursor-pointer transition-all group"
             >
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-xl border border-slate-600">
+                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-[#7DD3C0]/20 to-[#7DD3C0]/10 flex items-center justify-center text-2xl border-2 border-[#7DD3C0]/30 group-hover:border-[#FFD93D]/50 transition-colors">
                   💳
                 </div>
                 <div>
-                  <div className="text-white font-medium">{program.name}</div>
+                  <div className="text-white font-semibold group-hover:text-[#7DD3C0] transition-colors">{program.name}</div>
                   <div className="text-slate-400 text-sm">{program.type} • {program.scheme}</div>
                 </div>
               </div>
               <div className="flex items-center gap-8">
                 <div className="text-right">
-                  <div className="text-white font-medium">{program.cards.toLocaleString()}</div>
+                  <div className="text-white font-semibold">{program.cards.toLocaleString()}</div>
                   <div className="text-slate-500 text-xs">Cards</div>
                 </div>
                 <div className="text-right">
-                  <div className="text-white font-medium">{program.spend}</div>
+                  <div className="text-white font-semibold">{program.spend}</div>
                   <div className="text-slate-500 text-xs">Volume</div>
                 </div>
                 <StatusBadge status={program.status} />
-                <span className="text-slate-500">→</span>
+                <span className="text-[#7DD3C0] group-hover:text-[#FFD93D] transition-colors">→</span>
               </div>
             </div>
           ))}
