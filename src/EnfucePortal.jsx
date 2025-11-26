@@ -166,13 +166,32 @@ const EnfucePortal = () => {
     return [headers, ...rows].join('\n');
   };
 
+  // Send event to API
+  const sendEventToAPI = async (eventData) => {
+    try {
+      const response = await fetch('/api/events', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(eventData)
+      });
+
+      if (!response.ok) {
+        console.warn('Failed to send event to API:', response.statusText);
+      }
+    } catch (error) {
+      console.warn('Error sending event to API:', error);
+      // Fallback: Continue working even if API fails
+    }
+  };
+
   // Track page impression
   const trackImpression = () => {
     const sessionId = localStorage.getItem('session_id') || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     localStorage.setItem('session_id', sessionId);
 
-    const events = JSON.parse(localStorage.getItem('conversion_events') || '[]');
-    events.push({
+    const eventData = {
       timestamp: new Date().toISOString(),
       sessionId,
       eventType: 'impression',
@@ -182,16 +201,22 @@ const EnfucePortal = () => {
       purchased: false,
       programConfig: null,
       pricing: null
-    });
+    };
+
+    // Send to API
+    sendEventToAPI(eventData);
+
+    // Also keep in localStorage as backup
+    const events = JSON.parse(localStorage.getItem('conversion_events') || '[]');
+    events.push(eventData);
     localStorage.setItem('conversion_events', JSON.stringify(events));
   };
 
   // Track CTA click
   const trackCTAClick = (source) => {
     const sessionId = localStorage.getItem('session_id');
-    const events = JSON.parse(localStorage.getItem('conversion_events') || '[]');
 
-    events.push({
+    const eventData = {
       timestamp: new Date().toISOString(),
       sessionId,
       eventType: 'click',
@@ -201,7 +226,14 @@ const EnfucePortal = () => {
       purchased: false,
       programConfig: null,
       pricing: null
-    });
+    };
+
+    // Send to API
+    sendEventToAPI(eventData);
+
+    // Also keep in localStorage as backup
+    const events = JSON.parse(localStorage.getItem('conversion_events') || '[]');
+    events.push(eventData);
     localStorage.setItem('conversion_events', JSON.stringify(events));
 
     console.log('A/B Test Click:', {
@@ -216,7 +248,7 @@ const EnfucePortal = () => {
     const events = JSON.parse(localStorage.getItem('conversion_events') || '[]');
     const pricing = calculatePricing(newProgram);
 
-    events.push({
+    const eventData = {
       timestamp: new Date().toISOString(),
       sessionId,
       eventType: 'purchase',
@@ -226,7 +258,13 @@ const EnfucePortal = () => {
       purchased: true,
       programConfig: JSON.stringify(newProgram).replace(/,/g, ';'),
       pricing: pricing.total
-    });
+    };
+
+    // Send to API
+    sendEventToAPI(eventData);
+
+    // Also keep in localStorage as backup
+    events.push(eventData);
     localStorage.setItem('conversion_events', JSON.stringify(events));
 
     console.log('A/B Test Purchase:', {
@@ -356,6 +394,7 @@ const EnfucePortal = () => {
           { id: 'transactions', icon: '📈', label: 'Transactions' },
           { id: 'controls', icon: '🔒', label: 'Spend Controls' },
           { id: 'compliance', icon: '✅', label: 'Compliance' },
+          { id: 'analytics', icon: '📈', label: 'A/B Test Analytics' },
           { id: 'api', icon: '⚡', label: 'API & Webhooks' }
         ].map(item => (
           <button
@@ -1032,6 +1071,156 @@ const EnfucePortal = () => {
     </div>
   );
 
+  const AnalyticsSection = () => {
+    const [analyticsData, setAnalyticsData] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+      fetchAnalytics();
+      // Refresh every 30 seconds
+      const interval = setInterval(fetchAnalytics, 30000);
+      return () => clearInterval(interval);
+    }, []);
+
+    const fetchAnalytics = async () => {
+      try {
+        const response = await fetch('/api/analytics');
+        const data = await response.json();
+        setAnalyticsData(data);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching analytics:', error);
+        setLoading(false);
+      }
+    };
+
+    if (loading) {
+      return (
+        <div className="flex items-center justify-center h-96">
+          <div className="text-slate-400">Loading analytics...</div>
+        </div>
+      );
+    }
+
+    const summary = analyticsData?.summary || {};
+    const funnel = analyticsData?.funnel || {};
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-white">A/B Test Analytics</h1>
+          <p className="text-slate-400 mt-1">Conversion funnel and variant performance</p>
+        </div>
+
+        {/* Overall Funnel */}
+        <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-6">
+          <h2 className="text-lg font-semibold text-white mb-6">Overall Conversion Funnel</h2>
+
+          <div className="space-y-4">
+            {/* Impressions */}
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-slate-300">Page Views (Impressions)</span>
+                <span className="text-white font-semibold">{funnel.impressions || 0}</span>
+              </div>
+              <div className="h-16 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg flex items-center justify-center text-white font-semibold text-lg">
+                100%
+              </div>
+            </div>
+
+            {/* Clicks */}
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-slate-300">CTA Clicks</span>
+                <span className="text-white font-semibold">{funnel.clicks || 0} ({funnel.clickRate}%)</span>
+              </div>
+              <div
+                className="h-14 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white font-semibold"
+                style={{width: `${funnel.clickRate || 0}%`, minWidth: '80px'}}
+              >
+                {funnel.clickRate}%
+              </div>
+            </div>
+
+            {/* Purchases */}
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-slate-300">Purchases</span>
+                <span className="text-white font-semibold">{funnel.purchases || 0} ({funnel.conversionRate}% of clicks)</span>
+              </div>
+              <div
+                className="h-12 bg-gradient-to-r from-emerald-500 to-green-500 rounded-lg flex items-center justify-center text-white font-semibold"
+                style={{width: `${funnel.conversionRate || 0}%`, minWidth: '80px'}}
+              >
+                {funnel.conversionRate}%
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Variant Comparison */}
+        <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-6">
+          <h2 className="text-lg font-semibold text-white mb-6">Performance by Variant</h2>
+
+          <div className="grid grid-cols-2 gap-6">
+            {Object.entries(summary).map(([variant, data]) => {
+              const variantName = {
+                'Alive': 'A + Live (Header + Dynamic Pricing)',
+                'Afinal': 'A + Final (Header + Final Pricing)',
+                'Blive': 'B + Live (Dashboard + Dynamic Pricing)',
+                'Bfinal': 'B + Final (Dashboard + Final Pricing)'
+              }[variant] || variant;
+
+              return (
+                <div key={variant} className="bg-slate-900/50 rounded-xl border border-slate-700 p-5">
+                  <h3 className="text-white font-semibold mb-4">{variantName}</h3>
+
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400 text-sm">Impressions</span>
+                      <span className="text-white font-medium">{data.impressions}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400 text-sm">Clicks</span>
+                      <span className="text-white font-medium">{data.clicks}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400 text-sm">Purchases</span>
+                      <span className="text-white font-medium">{data.purchases}</span>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-700">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-slate-400 text-sm">Click Rate</span>
+                        <span className="text-cyan-400 font-semibold">{data.clickRate}%</span>
+                      </div>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-slate-400 text-sm">Conversion Rate</span>
+                        <span className="text-emerald-400 font-semibold">{data.conversionRate}%</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-400 text-sm">Overall CVR</span>
+                        <span className="text-purple-400 font-semibold">{data.overallConversionRate}%</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Refresh Button */}
+        <button
+          onClick={fetchAnalytics}
+          className="px-4 py-2 bg-cyan-500/20 text-cyan-300 rounded-lg hover:bg-cyan-500/30 transition-all border border-cyan-500/30"
+        >
+          Refresh Data
+        </button>
+      </div>
+    );
+  };
+
   const APISection = () => (
     <div className="space-y-6">
       <div>
@@ -1153,8 +1342,9 @@ const EnfucePortal = () => {
         <main className="p-8">
           {activeSection === 'dashboard' && <Dashboard />}
           {activeSection === 'programs' && <Dashboard />}
+          {activeSection === 'analytics' && <AnalyticsSection />}
           {activeSection === 'api' && <APISection />}
-          {activeSection !== 'dashboard' && activeSection !== 'programs' && activeSection !== 'api' && (
+          {activeSection !== 'dashboard' && activeSection !== 'programs' && activeSection !== 'analytics' && activeSection !== 'api' && (
             <div className="flex items-center justify-center h-96">
               <div className="text-center">
                 <div className="text-6xl mb-4">🚧</div>
