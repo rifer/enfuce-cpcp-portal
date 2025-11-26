@@ -1,8 +1,9 @@
 // API endpoint to record A/B test events
-// This uses Vercel KV (Redis) for persistent storage
-// To enable: Run `vercel link` and `vercel env pull` to set up KV
+// This uses Vercel Blob for persistent storage (free tier available)
 
-import { kv } from '@vercel/kv';
+import { put, head } from '@vercel/blob';
+
+const BLOB_FILE = 'abtest-events.json';
 
 export default async function handler(req, res) {
   // Enable CORS
@@ -23,31 +24,50 @@ export default async function handler(req, res) {
 
       // Generate unique event ID
       const eventId = `event:${Date.now()}:${Math.random().toString(36).substr(2, 9)}`;
+      event.eventId = eventId;
 
-      // Store event in KV
-      await kv.lpush('abtest:events', JSON.stringify(event));
+      // Read existing events from Blob
+      let events = [];
+      try {
+        const existingBlob = await head(BLOB_FILE);
+        if (existingBlob) {
+          const response = await fetch(existingBlob.url);
+          events = await response.json();
+        }
+      } catch (error) {
+        // File doesn't exist yet, start with empty array
+        events = [];
+      }
 
-      // Also store in a hash for quick variant lookup
-      const variantKey = `${event.ctaVariant}${event.pricingVariant}`;
-      await kv.hincrby('abtest:variants', variantKey, 1);
+      // Add new event
+      events.push(event);
 
-      // Track by event type
-      await kv.hincrby(`abtest:${variantKey}`, event.eventType, 1);
+      // Keep only last 10,000 events to avoid blob getting too large
+      if (events.length > 10000) {
+        events = events.slice(-10000);
+      }
+
+      // Save back to Blob
+      await put(BLOB_FILE, JSON.stringify(events), {
+        access: 'public',
+        addRandomSuffix: false
+      });
 
       return res.status(200).json({
         success: true,
         eventId,
-        message: 'Event recorded successfully'
+        message: 'Event recorded successfully',
+        totalEvents: events.length
       });
     } catch (error) {
       console.error('Error storing event:', error);
 
-      // Fallback: If KV is not set up, return success anyway
-      // This allows the app to work without KV configured
+      // Return success even if storage fails (graceful degradation)
       return res.status(200).json({
         success: true,
-        message: 'Event received (KV not configured)',
-        fallback: true
+        message: 'Event received (storage not configured)',
+        fallback: true,
+        error: error.message
       });
     }
   }

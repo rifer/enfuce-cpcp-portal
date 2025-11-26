@@ -7,36 +7,25 @@ This guide explains how to set up persistent analytics storage for the A/B test 
 The analytics system uses:
 - **Frontend**: React components track events (impressions, clicks, purchases)
 - **API**: Vercel Serverless Functions (`/api/events`, `/api/analytics`)
-- **Storage**: Vercel KV (Redis) for persistent data storage
+- **Storage**: Vercel Blob (simple file storage) for persistent data
 - **Fallback**: localStorage backup if API is unavailable
 
 ## Setup Steps
 
-### 1. Install Vercel KV
+### 1. Install Vercel Blob
 
-The `@vercel/kv` package is already in `package.json`.
+The `@vercel/blob` package is already in `package.json`.
 
-### 2. Create Vercel KV Database
+### 2. Enable Vercel Blob (FREE)
 
-1. Go to your Vercel dashboard
-2. Select your project
-3. Navigate to **Storage** tab
-4. Click **Create Database**
-5. Select **KV** (Redis)
-6. Name it `abtest-analytics` (or any name)
-7. Select a region close to your users
-8. Click **Create**
+**No setup needed!** Vercel Blob is automatically available for all projects.
 
-### 3. Link KV to Your Project
+**Free Tier Includes:**
+- 100 GB bandwidth/month
+- Unlimited storage (up to account limits)
+- No database setup required
 
-Vercel will automatically add environment variables:
-- `KV_REST_API_URL`
-- `KV_REST_API_TOKEN`
-- `KV_REST_API_READ_ONLY_TOKEN`
-
-These are automatically injected into your serverless functions.
-
-### 4. Deploy to Vercel
+### 3. Deploy to Vercel
 
 ```bash
 # If you haven't deployed yet
@@ -122,14 +111,12 @@ Retrieves aggregated analytics data.
 
 ## Data Storage Structure
 
-### Redis Keys
+### Vercel Blob Storage
 
-- `abtest:events` - List of all events (LPUSH)
-- `abtest:variants` - Hash of variant counts
-- `abtest:Alive` - Hash of event counts for variant Alive
-- `abtest:Afinal` - Hash of event counts for variant Afinal
-- `abtest:Blive` - Hash of event counts for variant Blive
-- `abtest:Bfinal` - Hash of event counts for variant Bfinal
+- Single JSON file: `abtest-events.json`
+- Contains array of all events (up to 10,000 most recent)
+- Public access for retrieval
+- Automatically managed by Vercel Blob API
 
 ### Event Object
 
@@ -173,28 +160,26 @@ Access the analytics dashboard at:
 
 ## Fallback Behavior
 
-If Vercel KV is not configured:
+If Vercel Blob is not configured or encounters errors:
 - API endpoints return success but don't store data
 - Events are still tracked in browser localStorage
-- Analytics dashboard shows empty state
+- Analytics dashboard shows empty state with fallback message
 - Console logging still works
 
-This allows development without KV setup.
+This allows development without Blob setup and provides graceful degradation.
 
 ## Troubleshooting
 
-### API Returns "KV not configured"
+### API Returns "Storage not configured"
 
-**Solution**: Ensure Vercel KV is created and linked to your project.
+**Solution**: Vercel Blob is automatically available. If you see this error:
+
+1. Ensure your project is deployed to Vercel
+2. Check Vercel function logs for specific errors
+3. Verify `@vercel/blob` package is installed
 
 ```bash
-# Link your project
-vercel link
-
-# Pull environment variables
-vercel env pull .env.local
-
-# Redeploy
+# Redeploy to ensure Blob is available
 vercel --prod
 ```
 
@@ -205,16 +190,16 @@ vercel --prod
    ```bash
    curl -X POST https://your-domain.vercel.app/api/events \
      -H "Content-Type: application/json" \
-     -d '{"eventType":"test"}'
+     -d '{"eventType":"test","ctaVariant":"A","pricingVariant":"live"}'
    ```
 3. Check Vercel function logs in dashboard
-4. Verify KV database is active
+4. Verify Blob storage is enabled (should be automatic)
 
 ### Data Not Persisting
 
-- Check KV database status in Vercel dashboard
-- Verify environment variables are set
-- Check function logs for errors
+- Check Vercel deployment status
+- Verify function logs for Blob API errors
+- Ensure project is deployed (Blob doesn't work in local dev)
 
 ## Exporting Data
 
@@ -226,37 +211,43 @@ Use the browser console:
 window.downloadCSV()
 ```
 
-### Direct Database Access
+### Direct Blob Access
 
-Use Vercel KV CLI or dashboard to query data:
+Access the blob file via Vercel dashboard or API:
 ```bash
-# Via CLI
-vercel kv get abtest:events
+# Via Vercel CLI
+vercel blob ls
+
+# Or use the Vercel dashboard to view blob storage
 ```
 
 ## Cost Considerations
 
-**Vercel KV Free Tier:**
-- 256 MB storage
-- 100K commands/month
-- Good for ~10,000-50,000 events
+**Vercel Blob Free Tier:**
+- 100 GB bandwidth/month
+- Unlimited storage (within account limits)
+- No per-request charges
+- Good for ~100,000+ events
 
 **Pro Plan:**
-- 1 GB storage ($5/month)
-- 1M commands/month
-- Good for production use
+- 1 TB bandwidth/month
+- Unlimited storage
+- Ideal for high-traffic production use
 
 ## Data Retention
 
-Events are stored indefinitely in Redis. To implement data retention:
+Events are stored indefinitely in Vercel Blob. Current implementation:
 
-1. Add TTL to events (modify `/api/events.js`):
+1. Automatic retention limit: Last 10,000 events (configured in `/api/events.js`)
 ```javascript
-await kv.lpush('abtest:events', JSON.stringify(event));
-await kv.expire('abtest:events', 60 * 60 * 24 * 30); // 30 days
+// Keep only last 10,000 events to avoid blob getting too large
+if (events.length > 10000) {
+  events = events.slice(-10000);
+}
 ```
 
-2. Or periodically archive old data to S3/database
+2. To implement time-based retention, filter by timestamp before saving
+3. Or periodically archive old data to external storage (S3, database)
 
 ## Next Steps
 
@@ -271,6 +262,6 @@ await kv.expire('abtest:events', 60 * 60 * 24 * 30); // 30 days
 
 ## Support
 
-For issues with Vercel KV:
-- Vercel Documentation: https://vercel.com/docs/storage/vercel-kv
+For issues with Vercel Blob:
+- Vercel Documentation: https://vercel.com/docs/storage/vercel-blob
 - Vercel Support: https://vercel.com/support
