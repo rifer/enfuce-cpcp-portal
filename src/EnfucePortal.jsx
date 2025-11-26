@@ -901,7 +901,53 @@ const EnfucePortal = () => {
           <div ref={scrollContainerRef} className="p-4 sm:p-6 overflow-y-auto flex-1 flex flex-col lg:flex-row gap-4 sm:gap-6">
             <div className={`${showLivePricing ? 'lg:flex-1' : 'w-full'}`}>
               <WizardStepIndicator />
-              {wizardStep === 1 && <WizardStep1 />}
+
+              {/* Step 1: Program Name & Type */}
+              {wizardStep === 1 && (
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm text-slate-300 mb-2">Program Name</label>
+                    <input
+                      type="text"
+                      value={newProgram.name}
+                      onChange={(e) => updateProgram({ name: e.target.value })}
+                      placeholder="e.g., Executive Travel Card"
+                      className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none"
+                      autoComplete="off"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-slate-300 mb-2">Program Type</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { id: 'corporate', label: 'Corporate', desc: 'Employee expenses', icon: '💼' },
+                        { id: 'fleet', label: 'Fleet/Fuel', desc: 'Vehicle operations', icon: '🚗' },
+                        { id: 'meal', label: 'Meal Card', desc: 'Employee benefits', icon: '🍽️' },
+                        { id: 'travel', label: 'Travel', desc: 'Business trips', icon: '✈️' },
+                        { id: 'gift', label: 'Gift Card', desc: 'Rewards & incentives', icon: '🎁' },
+                        { id: 'transport', label: 'Transport', desc: 'Commute expenses', icon: '🚇' }
+                      ].map(type => (
+                        <button
+                          key={type.id}
+                          onClick={() => updateProgram({ type: type.id })}
+                          className={`p-4 rounded-xl border text-left transition-all ${
+                            newProgram.type === type.id
+                              ? 'bg-cyan-500/20 border-cyan-500 text-white'
+                              : 'bg-slate-800/50 border-slate-700 text-slate-300 hover:border-slate-600'
+                          }`}
+                        >
+                          <span className="text-2xl">{type.icon}</span>
+                          <div className="font-medium mt-2">{type.label}</div>
+                          <div className="text-xs text-slate-400">{type.desc}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Render other steps (keeping component functions for now to minimize changes) */}
               {wizardStep === 2 && <WizardStep2 />}
               {wizardStep === 3 && <WizardStep3 />}
               {wizardStep === 4 && <WizardStep4 />}
