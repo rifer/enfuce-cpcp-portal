@@ -1104,6 +1104,7 @@ const EnfucePortal = () => {
 
     const summary = analyticsData?.summary || {};
     const funnel = analyticsData?.funnel || {};
+    const isFallbackMode = analyticsData?.fallback === true;
 
     return (
       <div className="space-y-6">
@@ -1111,6 +1112,25 @@ const EnfucePortal = () => {
           <h1 className="text-2xl font-bold text-white">A/B Test Analytics</h1>
           <p className="text-slate-400 mt-1">Conversion funnel and variant performance</p>
         </div>
+
+        {/* Fallback Mode Notice */}
+        {isFallbackMode && (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4">
+            <div className="flex items-start gap-3">
+              <span className="text-amber-400 text-xl">ℹ️</span>
+              <div>
+                <div className="text-amber-300 font-medium">Local Development Mode</div>
+                <div className="text-sm text-slate-300 mt-1">
+                  Vercel Blob storage is not configured. Events are being tracked in your browser's localStorage only.
+                  Deploy to Vercel to enable persistent, cross-user analytics tracking.
+                </div>
+                <div className="text-xs text-slate-400 mt-2">
+                  💡 Use <code className="bg-slate-800 px-2 py-0.5 rounded">window.getABTestAnalytics()</code> in the console to view local data.
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Overall Funnel */}
         <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-6">

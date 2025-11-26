@@ -16,6 +16,26 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'GET') {
+    // Check if Blob token is configured
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      // Return empty analytics for local development
+      return res.status(200).json({
+        success: true,
+        message: 'Blob storage not configured (expected in local dev)',
+        fallback: true,
+        note: 'Deploy to Vercel for persistent analytics. Using localStorage for now.',
+        totalEvents: 0,
+        summary: {
+          Alive: { impressions: 0, clicks: 0, purchases: 0, clickRate: '0.00', conversionRate: '0.00', overallConversionRate: '0.00' },
+          Afinal: { impressions: 0, clicks: 0, purchases: 0, clickRate: '0.00', conversionRate: '0.00', overallConversionRate: '0.00' },
+          Blive: { impressions: 0, clicks: 0, purchases: 0, clickRate: '0.00', conversionRate: '0.00', overallConversionRate: '0.00' },
+          Bfinal: { impressions: 0, clicks: 0, purchases: 0, clickRate: '0.00', conversionRate: '0.00', overallConversionRate: '0.00' }
+        },
+        funnel: { impressions: 0, clicks: 0, purchases: 0, clickRate: '0.00', conversionRate: '0.00' },
+        events: []
+      });
+    }
+
     try {
       // Read events from Blob
       let events = [];
