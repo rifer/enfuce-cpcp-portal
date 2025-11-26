@@ -1779,11 +1779,76 @@ const EnfucePortal = () => {
     const funnel = analyticsData?.funnel || {};
     const isFallbackMode = analyticsData?.fallback === true;
 
+    // Calculate factor-based analytics for clear decision making
+    const calculateFactorImpact = () => {
+      // CTA Position: A (Header) vs B (Dashboard)
+      const ctaA = {
+        impressions: (summary.Alive?.impressions || 0) + (summary.Afinal?.impressions || 0),
+        clicks: (summary.Alive?.clicks || 0) + (summary.Afinal?.clicks || 0),
+        purchases: (summary.Alive?.purchases || 0) + (summary.Afinal?.purchases || 0)
+      };
+      const ctaB = {
+        impressions: (summary.Blive?.impressions || 0) + (summary.Bfinal?.impressions || 0),
+        clicks: (summary.Blive?.clicks || 0) + (summary.Bfinal?.clicks || 0),
+        purchases: (summary.Blive?.purchases || 0) + (summary.Bfinal?.purchases || 0)
+      };
+
+      // Pricing: Live vs Final
+      const pricingLive = {
+        impressions: (summary.Alive?.impressions || 0) + (summary.Blive?.impressions || 0),
+        clicks: (summary.Alive?.clicks || 0) + (summary.Blive?.clicks || 0),
+        purchases: (summary.Alive?.purchases || 0) + (summary.Blive?.purchases || 0)
+      };
+      const pricingFinal = {
+        impressions: (summary.Afinal?.impressions || 0) + (summary.Bfinal?.impressions || 0),
+        clicks: (summary.Afinal?.clicks || 0) + (summary.Bfinal?.clicks || 0),
+        purchases: (summary.Afinal?.purchases || 0) + (summary.Bfinal?.purchases || 0)
+      };
+
+      // Calculate conversion rates
+      const ctaARate = ctaA.impressions > 0 ? ((ctaA.purchases / ctaA.impressions) * 100).toFixed(2) : '0.00';
+      const ctaBRate = ctaB.impressions > 0 ? ((ctaB.purchases / ctaB.impressions) * 100).toFixed(2) : '0.00';
+      const liveRate = pricingLive.impressions > 0 ? ((pricingLive.purchases / pricingLive.impressions) * 100).toFixed(2) : '0.00';
+      const finalRate = pricingFinal.impressions > 0 ? ((pricingFinal.purchases / pricingFinal.impressions) * 100).toFixed(2) : '0.00';
+
+      // Wizard type
+      const chatWizard = analyticsData?.chatWizard || {};
+      const traditionalConversions = chatWizard.traditionalCount || 0;
+      const chatConversions = chatWizard.completed || 0;
+
+      const traditionalRate = traditionalConversions > 0 && chatWizard.traditionalCount > 0
+        ? ((traditionalConversions / chatWizard.traditionalCount) * 100).toFixed(2)
+        : '0.00';
+      const chatRate = chatWizard.started > 0
+        ? ((chatConversions / chatWizard.started) * 100).toFixed(2)
+        : '0.00';
+
+      return {
+        cta: {
+          A: { ...ctaA, rate: ctaARate },
+          B: { ...ctaB, rate: ctaBRate },
+          winner: parseFloat(ctaARate) > parseFloat(ctaBRate) ? 'A' : 'B'
+        },
+        pricing: {
+          live: { ...pricingLive, rate: liveRate },
+          final: { ...pricingFinal, rate: finalRate },
+          winner: parseFloat(liveRate) > parseFloat(finalRate) ? 'live' : 'final'
+        },
+        wizard: {
+          traditional: { conversions: traditionalConversions, rate: traditionalRate },
+          chat: { conversions: chatConversions, rate: chatRate, started: chatWizard.started },
+          winner: parseFloat(chatRate) > parseFloat(traditionalRate) ? 'chat' : 'traditional'
+        }
+      };
+    };
+
+    const factors = calculateFactorImpact();
+
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-white">A/B Test Analytics</h1>
-          <p className="text-slate-400 mt-1">Conversion funnel and variant performance</p>
+          <h1 className="text-2xl font-bold text-white">A/B Test Results</h1>
+          <p className="text-slate-400 mt-1">Which approach converts better?</p>
         </div>
 
         {/* Fallback Mode Notice */}
@@ -1795,73 +1860,182 @@ const EnfucePortal = () => {
                 <div className="text-amber-300 font-medium">Local Development Mode</div>
                 <div className="text-sm text-slate-300 mt-1">
                   Vercel Blob storage is not configured. Events are being tracked in your browser's localStorage only.
-                  Deploy to Vercel to enable persistent, cross-user analytics tracking.
-                </div>
-                <div className="text-xs text-slate-400 mt-2">
-                  💡 Use <code className="bg-slate-800 px-2 py-0.5 rounded">window.getABTestAnalytics()</code> in the console to view local data.
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Overall Funnel */}
+        {/* Key Metrics Summary */}
+        <div className="grid grid-cols-3 gap-4">
+          <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-6">
+            <div className="text-slate-400 text-sm mb-2">Total Visitors</div>
+            <div className="text-3xl font-bold text-white">{funnel.impressions || 0}</div>
+          </div>
+          <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-6">
+            <div className="text-slate-400 text-sm mb-2">CTA Clicks</div>
+            <div className="text-3xl font-bold text-cyan-400">{funnel.clicks || 0}</div>
+            <div className="text-xs text-slate-500 mt-1">{funnel.clickRate}% click rate</div>
+          </div>
+          <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-6">
+            <div className="text-slate-400 text-sm mb-2">Purchases</div>
+            <div className="text-3xl font-bold text-emerald-400">{funnel.purchases || 0}</div>
+            <div className="text-xs text-slate-500 mt-1">{funnel.conversionRate}% of clicks</div>
+          </div>
+        </div>
+
+        {/* CTA Position Test */}
         <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-6">
-          <h2 className="text-lg font-semibold text-white mb-6">Overall Conversion Funnel</h2>
-
-          <div className="space-y-4">
-            {/* Impressions */}
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-slate-300">Page Views (Impressions)</span>
-                <span className="text-white font-semibold">{funnel.impressions || 0}</span>
+          <h2 className="text-lg font-semibold text-white mb-4">📍 CTA Position Test</h2>
+          <div className="grid grid-cols-2 gap-4">
+            <div className={`p-6 rounded-xl border-2 ${factors.cta.winner === 'A' ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-700 bg-slate-900/50'}`}>
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-lg font-semibold text-white">Variant A: Header</div>
+                {factors.cta.winner === 'A' && <span className="text-emerald-400 text-2xl">👑</span>}
               </div>
-              <div className="h-16 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg flex items-center justify-center text-white font-semibold text-lg">
-                100%
-              </div>
-            </div>
-
-            {/* Clicks */}
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-slate-300">CTA Clicks</span>
-                <span className="text-white font-semibold">{funnel.clicks || 0} ({funnel.clickRate}%)</span>
-              </div>
-              <div
-                className="h-14 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white font-semibold"
-                style={{width: `${funnel.clickRate || 0}%`, minWidth: '80px'}}
-              >
-                {funnel.clickRate}%
+              <div className="text-4xl font-bold text-white mb-2">{factors.cta.A.rate}%</div>
+              <div className="text-sm text-slate-400">Conversion Rate</div>
+              <div className="mt-4 grid grid-cols-3 gap-3 text-xs">
+                <div>
+                  <div className="text-slate-500">Visitors</div>
+                  <div className="text-white font-medium">{factors.cta.A.impressions}</div>
+                </div>
+                <div>
+                  <div className="text-slate-500">Clicks</div>
+                  <div className="text-white font-medium">{factors.cta.A.clicks}</div>
+                </div>
+                <div>
+                  <div className="text-slate-500">Purchases</div>
+                  <div className="text-white font-medium">{factors.cta.A.purchases}</div>
+                </div>
               </div>
             </div>
 
-            {/* Purchases */}
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-slate-300">Purchases</span>
-                <span className="text-white font-semibold">{funnel.purchases || 0} ({funnel.conversionRate}% of clicks)</span>
+            <div className={`p-6 rounded-xl border-2 ${factors.cta.winner === 'B' ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-700 bg-slate-900/50'}`}>
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-lg font-semibold text-white">Variant B: Dashboard</div>
+                {factors.cta.winner === 'B' && <span className="text-emerald-400 text-2xl">👑</span>}
               </div>
-              <div
-                className="h-12 bg-gradient-to-r from-emerald-500 to-green-500 rounded-lg flex items-center justify-center text-white font-semibold"
-                style={{width: `${funnel.conversionRate || 0}%`, minWidth: '80px'}}
-              >
-                {funnel.conversionRate}%
+              <div className="text-4xl font-bold text-white mb-2">{factors.cta.B.rate}%</div>
+              <div className="text-sm text-slate-400">Conversion Rate</div>
+              <div className="mt-4 grid grid-cols-3 gap-3 text-xs">
+                <div>
+                  <div className="text-slate-500">Visitors</div>
+                  <div className="text-white font-medium">{factors.cta.B.impressions}</div>
+                </div>
+                <div>
+                  <div className="text-slate-500">Clicks</div>
+                  <div className="text-white font-medium">{factors.cta.B.clicks}</div>
+                </div>
+                <div>
+                  <div className="text-slate-500">Purchases</div>
+                  <div className="text-white font-medium">{factors.cta.B.purchases}</div>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Variant Comparison */}
+        {/* Pricing Display Test */}
         <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-6">
-          <h2 className="text-lg font-semibold text-white mb-6">Performance by Variant</h2>
+          <h2 className="text-lg font-semibold text-white mb-4">💰 Pricing Display Test</h2>
+          <div className="grid grid-cols-2 gap-4">
+            <div className={`p-6 rounded-xl border-2 ${factors.pricing.winner === 'live' ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-700 bg-slate-900/50'}`}>
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-lg font-semibold text-white">Dynamic Pricing</div>
+                {factors.pricing.winner === 'live' && <span className="text-emerald-400 text-2xl">👑</span>}
+              </div>
+              <div className="text-4xl font-bold text-white mb-2">{factors.pricing.live.rate}%</div>
+              <div className="text-sm text-slate-400">Conversion Rate</div>
+              <div className="mt-4 grid grid-cols-3 gap-3 text-xs">
+                <div>
+                  <div className="text-slate-500">Visitors</div>
+                  <div className="text-white font-medium">{factors.pricing.live.impressions}</div>
+                </div>
+                <div>
+                  <div className="text-slate-500">Clicks</div>
+                  <div className="text-white font-medium">{factors.pricing.live.clicks}</div>
+                </div>
+                <div>
+                  <div className="text-slate-500">Purchases</div>
+                  <div className="text-white font-medium">{factors.pricing.live.purchases}</div>
+                </div>
+              </div>
+            </div>
 
-          <div className="grid grid-cols-2 gap-6">
+            <div className={`p-6 rounded-xl border-2 ${factors.pricing.winner === 'final' ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-700 bg-slate-900/50'}`}>
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-lg font-semibold text-white">Final Price Only</div>
+                {factors.pricing.winner === 'final' && <span className="text-emerald-400 text-2xl">👑</span>}
+              </div>
+              <div className="text-4xl font-bold text-white mb-2">{factors.pricing.final.rate}%</div>
+              <div className="text-sm text-slate-400">Conversion Rate</div>
+              <div className="mt-4 grid grid-cols-3 gap-3 text-xs">
+                <div>
+                  <div className="text-slate-500">Visitors</div>
+                  <div className="text-white font-medium">{factors.pricing.final.impressions}</div>
+                </div>
+                <div>
+                  <div className="text-slate-500">Clicks</div>
+                  <div className="text-white font-medium">{factors.pricing.final.clicks}</div>
+                </div>
+                <div>
+                  <div className="text-slate-500">Purchases</div>
+                  <div className="text-white font-medium">{factors.pricing.final.purchases}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Wizard Type Test */}
+        <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-6">
+          <h2 className="text-lg font-semibold text-white mb-4">🤖 Wizard Type Test</h2>
+          <div className="grid grid-cols-2 gap-4">
+            <div className={`p-6 rounded-xl border-2 ${factors.wizard.winner === 'traditional' ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-700 bg-slate-900/50'}`}>
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-lg font-semibold text-white">Traditional Wizard</div>
+                {factors.wizard.winner === 'traditional' && <span className="text-emerald-400 text-2xl">👑</span>}
+              </div>
+              <div className="text-4xl font-bold text-white mb-2">{factors.wizard.traditional.rate}%</div>
+              <div className="text-sm text-slate-400">Completion Rate</div>
+              <div className="mt-4">
+                <div className="text-slate-500 text-xs">Completions</div>
+                <div className="text-white font-medium">{factors.wizard.traditional.conversions}</div>
+              </div>
+            </div>
+
+            <div className={`p-6 rounded-xl border-2 ${factors.wizard.winner === 'chat' ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-700 bg-slate-900/50'}`}>
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-lg font-semibold text-white">Chat Wizard</div>
+                {factors.wizard.winner === 'chat' && <span className="text-emerald-400 text-2xl">👑</span>}
+              </div>
+              <div className="text-4xl font-bold text-white mb-2">{factors.wizard.chat.rate}%</div>
+              <div className="text-sm text-slate-400">Completion Rate</div>
+              <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <div className="text-slate-500">Started</div>
+                  <div className="text-white font-medium">{factors.wizard.chat.started}</div>
+                </div>
+                <div>
+                  <div className="text-slate-500">Completed</div>
+                  <div className="text-white font-medium">{factors.wizard.chat.conversions}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Detailed Variant Breakdown (Collapsible) */}
+        <details className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-6">
+          <summary className="text-lg font-semibold text-white cursor-pointer hover:text-cyan-400">📊 View Detailed Variant Breakdown</summary>
+          <div className="grid grid-cols-2 gap-4 mt-6">
             {Object.entries(summary).map(([variant, data]) => {
               const variantName = {
-                'Alive': 'A + Live (Header + Dynamic Pricing)',
-                'Afinal': 'A + Final (Header + Final Pricing)',
-                'Blive': 'B + Live (Dashboard + Dynamic Pricing)',
-                'Bfinal': 'B + Final (Dashboard + Final Pricing)'
+                'Alive': 'Header + Dynamic Pricing',
+                'Afinal': 'Header + Final Pricing',
+                'Blive': 'Dashboard + Dynamic Pricing',
+                'Bfinal': 'Dashboard + Final Pricing'
               }[variant] || variant;
 
               return (
@@ -1870,7 +2044,7 @@ const EnfucePortal = () => {
 
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-400 text-sm">Impressions</span>
+                      <span className="text-slate-400 text-sm">Visitors</span>
                       <span className="text-white font-medium">{data.impressions}</span>
                     </div>
                     <div className="flex justify-between items-center">
@@ -1883,17 +2057,9 @@ const EnfucePortal = () => {
                     </div>
 
                     <div className="pt-3 border-t border-slate-700">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-slate-400 text-sm">Click Rate</span>
-                        <span className="text-cyan-400 font-semibold">{data.clickRate}%</span>
-                      </div>
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-slate-400 text-sm">Conversion Rate</span>
-                        <span className="text-emerald-400 font-semibold">{data.conversionRate}%</span>
-                      </div>
                       <div className="flex justify-between items-center">
                         <span className="text-slate-400 text-sm">Overall CVR</span>
-                        <span className="text-purple-400 font-semibold">{data.overallConversionRate}%</span>
+                        <span className="text-emerald-400 font-semibold">{data.overallConversionRate}%</span>
                       </div>
                     </div>
                   </div>
@@ -1901,114 +2067,7 @@ const EnfucePortal = () => {
               );
             })}
           </div>
-        </div>
-
-        {/* Chat Wizard Analytics */}
-        <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-6">
-          <h2 className="text-lg font-semibold text-white mb-6">🤖 Chat Wizard Analytics</h2>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Wizard Variant Distribution */}
-            <div className="bg-slate-900/50 rounded-xl border border-slate-700 p-5">
-              <h3 className="text-white font-semibold mb-4">Wizard Type Distribution</h3>
-              <div className="space-y-3">
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-slate-400 text-sm">Traditional Wizard</span>
-                    <span className="text-white font-medium">{analyticsData?.chatWizard?.traditionalCount || 0}</span>
-                  </div>
-                  <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-blue-500 to-cyan-500"
-                      style={{width: `${analyticsData?.chatWizard?.traditionalPercent || 0}%`}}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-slate-400 text-sm">Chat Wizard</span>
-                    <span className="text-white font-medium">{analyticsData?.chatWizard?.chatCount || 0}</span>
-                  </div>
-                  <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-[#7DD3C0] to-[#FFD93D]"
-                      style={{width: `${analyticsData?.chatWizard?.chatPercent || 0}%`}}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Chat Wizard Completion Rates */}
-            <div className="bg-slate-900/50 rounded-xl border border-slate-700 p-5">
-              <h3 className="text-white font-semibold mb-4">Chat Wizard Metrics</h3>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400 text-sm">Started</span>
-                  <span className="text-white font-medium">{analyticsData?.chatWizard?.started || 0}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400 text-sm">Completed</span>
-                  <span className="text-emerald-400 font-medium">{analyticsData?.chatWizard?.completed || 0}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400 text-sm">Abandoned</span>
-                  <span className="text-red-400 font-medium">{analyticsData?.chatWizard?.abandoned || 0}</span>
-                </div>
-                <div className="pt-3 border-t border-slate-700">
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-400 text-sm">Completion Rate</span>
-                    <span className="text-[#7DD3C0] font-semibold text-lg">
-                      {analyticsData?.chatWizard?.completionRate || 0}%
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Average Engagement */}
-            <div className="bg-slate-900/50 rounded-xl border border-slate-700 p-5">
-              <h3 className="text-white font-semibold mb-4">Engagement Metrics</h3>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400 text-sm">Avg. Messages</span>
-                  <span className="text-white font-medium">{analyticsData?.chatWizard?.avgMessages || 0}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400 text-sm">Avg. Steps Completed</span>
-                  <span className="text-white font-medium">{analyticsData?.chatWizard?.avgStepsCompleted || 0}/10</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400 text-sm">Most Common Drop-off</span>
-                  <span className="text-amber-400 font-medium">Step {analyticsData?.chatWizard?.commonDropoffStep || '-'}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Step-by-Step Funnel for Chat Wizard */}
-          {analyticsData?.chatWizard?.stepFunnel && (
-            <div className="mt-6">
-              <h3 className="text-white font-semibold mb-4">Chat Wizard Step Completion</h3>
-              <div className="space-y-2">
-                {analyticsData.chatWizard.stepFunnel.map((step, idx) => (
-                  <div key={idx}>
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-slate-400 text-sm">Step {idx + 1}: {step.name}</span>
-                      <span className="text-white font-medium">{step.count} ({step.rate}%)</span>
-                    </div>
-                    <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-[#7DD3C0] to-[#FFD93D]"
-                        style={{width: `${step.rate}%`}}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+        </details>
 
         {/* Refresh Button */}
         <button
