@@ -93,8 +93,8 @@ const EnfucePortal = () => {
     setAbTestVariant(ctaVariant);
     setPricingVariant(pricingVar);
 
-    // Track impression (page load)
-    trackImpression();
+    // Track impression (page load) - use local variables, not state
+    trackImpression(ctaVariant, pricingVar);
 
     // Make analytics accessible in console for debugging
     window.getABTestAnalytics = () => {
@@ -187,7 +187,7 @@ const EnfucePortal = () => {
   };
 
   // Track page impression
-  const trackImpression = () => {
+  const trackImpression = (ctaVar, pricingVar) => {
     const sessionId = localStorage.getItem('session_id') || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     localStorage.setItem('session_id', sessionId);
 
@@ -195,8 +195,8 @@ const EnfucePortal = () => {
       timestamp: new Date().toISOString(),
       sessionId,
       eventType: 'impression',
-      ctaVariant: abTestVariant,
-      pricingVariant: pricingVariant,
+      ctaVariant: ctaVar,
+      pricingVariant: pricingVar,
       clickSource: null,
       purchased: false,
       programConfig: null,
