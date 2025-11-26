@@ -393,15 +393,15 @@ const EnfucePortal = () => {
   };
 
   const SideNav = () => (
-    <div className="w-64 bg-slate-900 border-r border-slate-700/50 flex flex-col">
-      <div className="p-6 border-b border-slate-700/50">
+    <div className="w-full lg:w-64 bg-[#1a2332] border-r border-[#7DD3C0]/20 flex flex-col">
+      <div className="p-6 border-b border-[#7DD3C0]/20">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
-            <span className="text-white font-bold text-lg">E</span>
+          <div className="w-10 h-10 rounded-lg bg-[#7DD3C0] flex items-center justify-center">
+            <span className="text-[#2C3E50] font-bold text-lg">E</span>
           </div>
           <div>
-            <div className="text-white font-semibold">MyEnfuce</div>
-            <div className="text-slate-400 text-xs">Card Configuration</div>
+            <div className="text-white font-semibold">Enfuce Portal</div>
+            <div className="text-[#7DD3C0]/70 text-xs">Card Configuration</div>
           </div>
         </div>
       </div>
@@ -421,9 +421,9 @@ const EnfucePortal = () => {
             key={item.id}
             onClick={() => setActiveSection(item.id)}
             className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-all ${
-              activeSection === item.id 
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' 
-                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+              activeSection === item.id
+                ? 'bg-[#7DD3C0]/20 text-[#7DD3C0] border border-[#7DD3C0]/30'
+                : 'text-gray-300 hover:bg-[#2C3E50] hover:text-white'
             }`}
           >
             <span>{item.icon}</span>
@@ -1032,18 +1032,18 @@ const EnfucePortal = () => {
         {abTestVariant === 'B' && (
           <button
             onClick={() => handleOpenWizard('dashboard')}
-            className="px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg font-medium hover:from-cyan-400 hover:to-blue-400 transition-all flex items-center gap-2"
+            className="px-5 py-2.5 bg-[#FFD93D] text-[#2C3E50] rounded-lg font-semibold hover:bg-[#FFC700] transition-all flex items-center gap-2 shadow-lg"
           >
             <span>+</span> New Program
           </button>
         )}
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
-        <StatsCard icon="💳" label="Total Cards" value="4,248" change={12} color="text-cyan-400" />
-        <StatsCard icon="💰" label="Monthly Volume" value="€2.78M" change={8} color="text-emerald-400" />
-        <StatsCard icon="📊" label="Active Programs" value="5" color="text-amber-400" />
-        <StatsCard icon="✅" label="Approval Rate" value="97.8%" change={2} color="text-purple-400" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatsCard icon="💳" label="Total Cards" value="4,248" change={12} color="text-[#7DD3C0]" />
+        <StatsCard icon="💰" label="Monthly Volume" value="€2.78M" change={8} color="text-[#FFD93D]" />
+        <StatsCard icon="📊" label="Active Programs" value="5" color="text-[#7DD3C0]" />
+        <StatsCard icon="✅" label="Approval Rate" value="97.8%" change={2} color="text-[#FFD93D]" />
       </div>
 
       <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl overflow-hidden">
@@ -1347,10 +1347,10 @@ const EnfucePortal = () => {
   );
 
   return (
-    <div className="min-h-screen bg-slate-950 flex" style={{fontFamily: "'Inter', system-ui, sans-serif"}}>
+    <div className="min-h-screen bg-[#2C3E50] flex flex-col lg:flex-row" style={{fontFamily: "'Inter', system-ui, sans-serif"}}>
       <SideNav />
       <div className="flex-1 overflow-auto">
-        <header className="sticky top-0 bg-slate-950/80 backdrop-blur-xl border-b border-slate-800/50 px-8 py-4 flex justify-between items-center z-10">
+        <header className="sticky top-0 bg-[#2C3E50]/95 backdrop-blur-xl border-b border-[#7DD3C0]/20 px-4 lg:px-8 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 z-10">
           <div className="flex items-center gap-4">
             <div className="relative">
               <input
@@ -1366,7 +1366,7 @@ const EnfucePortal = () => {
             {abTestVariant === 'A' && (
               <button
                 onClick={() => handleOpenWizard('header')}
-                className="px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg font-medium hover:from-cyan-400 hover:to-blue-400 transition-all flex items-center gap-2"
+                className="px-5 py-2.5 bg-[#FFD93D] text-[#2C3E50] rounded-lg font-semibold hover:bg-[#FFC700] transition-all flex items-center gap-2 shadow-lg"
               >
                 <span>+</span> New Program
               </button>
