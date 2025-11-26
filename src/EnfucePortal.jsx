@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 
 const EnfucePortal = () => {
   const [activeSection, setActiveSection] = useState('dashboard');
@@ -7,6 +7,7 @@ const EnfucePortal = () => {
   const [selectedProgram, setSelectedProgram] = useState(null);
   const [abTestVariant, setAbTestVariant] = useState(null);
   const [pricingVariant, setPricingVariant] = useState(null);
+  const [wizardVariant, setWizardVariant] = useState(null); // 'traditional' or 'chat'
   const [newProgram, setNewProgram] = useState({
     name: '',
     type: '',
@@ -18,7 +19,26 @@ const EnfucePortal = () => {
     monthlyLimit: 5000,
     mccRestrictions: [],
     countries: [],
-    estimatedCards: 100
+    estimatedCards: 100,
+    cardDesign: 'corporate',
+    cardColor: '#2C3E50',
+    cardBackgroundImage: null
+  });
+
+  // Stable update handler to prevent component recreation
+  const updateProgram = useCallback((updates) => {
+    setNewProgram(prev => ({ ...prev, ...updates }));
+  }, []);
+
+  // Wizard scroll management
+  const scrollContainerRef = useRef(null);
+  const prevStepRef = useRef(wizardStep);
+
+  useEffect(() => {
+    if (prevStepRef.current !== wizardStep && scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+      prevStepRef.current = wizardStep;
+    }
   });
 
   // Pricing calculation function
@@ -80,18 +100,22 @@ const EnfucePortal = () => {
     // Check if user already has variants assigned
     let ctaVariant = localStorage.getItem('abtest_cta_variant');
     let pricingVar = localStorage.getItem('abtest_pricing_variant');
+    let wizardVar = localStorage.getItem('abtest_wizard_variant');
 
-    if (!ctaVariant || !pricingVar) {
-      // Randomly assign 25% to each of 4 combinations
+    if (!ctaVariant || !pricingVar || !wizardVar) {
+      // Randomly assign variants
       ctaVariant = Math.random() < 0.5 ? 'A' : 'B';
       pricingVar = Math.random() < 0.5 ? 'live' : 'final';
+      wizardVar = Math.random() < 0.5 ? 'traditional' : 'chat';
 
       localStorage.setItem('abtest_cta_variant', ctaVariant);
       localStorage.setItem('abtest_pricing_variant', pricingVar);
+      localStorage.setItem('abtest_wizard_variant', wizardVar);
     }
 
     setAbTestVariant(ctaVariant);
     setPricingVariant(pricingVar);
+    setWizardVariant(wizardVar);
 
     // Track impression (page load) - use local variables, not state
     trackImpression(ctaVariant, pricingVar);
@@ -323,12 +347,12 @@ const EnfucePortal = () => {
 
   const StatusBadge = ({ status }) => {
     const colors = {
-      'Active': 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
-      'Draft': 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+      'Active': 'bg-[#7DD3C0]/20 text-[#7DD3C0] border-[#7DD3C0]/40',
+      'Draft': 'bg-[#FFD93D]/20 text-[#FFD93D] border-[#FFD93D]/40',
       'Suspended': 'bg-red-500/20 text-red-300 border-red-500/30'
     };
     return (
-      <span className={`px-2 py-0.5 text-xs font-medium rounded border ${colors[status]}`}>
+      <span className={`px-2.5 py-1 text-xs font-bold rounded-md border ${colors[status]} uppercase tracking-wide`}>
         {status}
       </span>
     );
@@ -393,15 +417,15 @@ const EnfucePortal = () => {
   };
 
   const SideNav = () => (
-    <div className="w-64 bg-slate-900 border-r border-slate-700/50 flex flex-col">
-      <div className="p-6 border-b border-slate-700/50">
+    <div className="w-full lg:w-64 bg-[#1a2332] border-r border-[#7DD3C0]/20 flex flex-col">
+      <div className="p-6 border-b border-[#7DD3C0]/20">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
-            <span className="text-white font-bold text-lg">E</span>
+          <div className="w-10 h-10 rounded-lg bg-[#7DD3C0] flex items-center justify-center">
+            <span className="text-[#2C3E50] font-bold text-lg">E</span>
           </div>
           <div>
-            <div className="text-white font-semibold">MyEnfuce</div>
-            <div className="text-slate-400 text-xs">Card Configuration</div>
+            <div className="text-white font-semibold">Enfuce Portal</div>
+            <div className="text-[#7DD3C0]/70 text-xs">Card Configuration</div>
           </div>
         </div>
       </div>
@@ -421,9 +445,9 @@ const EnfucePortal = () => {
             key={item.id}
             onClick={() => setActiveSection(item.id)}
             className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-all ${
-              activeSection === item.id 
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' 
-                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+              activeSection === item.id
+                ? 'bg-[#7DD3C0]/20 text-[#7DD3C0] border border-[#7DD3C0]/30'
+                : 'text-gray-300 hover:bg-[#2C3E50] hover:text-white'
             }`}
           >
             <span>{item.icon}</span>
@@ -483,12 +507,13 @@ const EnfucePortal = () => {
         <input
           type="text"
           value={newProgram.name}
-          onChange={(e) => setNewProgram({...newProgram, name: e.target.value})}
+          onChange={(e) => updateProgram({ name: e.target.value })}
           placeholder="e.g., Executive Travel Card"
           className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none"
+          autoComplete="off"
         />
       </div>
-      
+
       <div>
         <label className="block text-sm text-slate-300 mb-2">Program Type</label>
         <div className="grid grid-cols-2 gap-3">
@@ -502,10 +527,10 @@ const EnfucePortal = () => {
           ].map(type => (
             <button
               key={type.id}
-              onClick={() => setNewProgram({...newProgram, type: type.id})}
+              onClick={() => updateProgram({ type: type.id })}
               className={`p-4 rounded-xl border text-left transition-all ${
-                newProgram.type === type.id 
-                  ? 'bg-cyan-500/20 border-cyan-500 text-white' 
+                newProgram.type === type.id
+                  ? 'bg-cyan-500/20 border-cyan-500 text-white'
                   : 'bg-slate-800/50 border-slate-700 text-slate-300 hover:border-slate-600'
               }`}
             >
@@ -532,10 +557,10 @@ const EnfucePortal = () => {
           ].map(model => (
             <button
               key={model.id}
-              onClick={() => setNewProgram({...newProgram, fundingModel: model.id})}
+              onClick={() => updateProgram({ fundingModel: model.id })}
               className={`p-4 rounded-xl border text-left transition-all ${
-                newProgram.fundingModel === model.id 
-                  ? 'bg-cyan-500/20 border-cyan-500 text-white' 
+                newProgram.fundingModel === model.id
+                  ? 'bg-cyan-500/20 border-cyan-500 text-white'
                   : 'bg-slate-800/50 border-slate-700 text-slate-300 hover:border-slate-600'
               }`}
             >
@@ -559,14 +584,14 @@ const EnfucePortal = () => {
               key={form.id}
               onClick={() => {
                 const current = newProgram.formFactor;
-                const updated = current.includes(form.id) 
+                const updated = current.includes(form.id)
                   ? current.filter(f => f !== form.id)
                   : [...current, form.id];
-                setNewProgram({...newProgram, formFactor: updated});
+                updateProgram({ formFactor: updated });
               }}
               className={`p-4 rounded-xl border text-center transition-all ${
                 newProgram.formFactor.includes(form.id)
-                  ? 'bg-cyan-500/20 border-cyan-500 text-white' 
+                  ? 'bg-cyan-500/20 border-cyan-500 text-white'
                   : 'bg-slate-800/50 border-slate-700 text-slate-300 hover:border-slate-600'
               }`}
             >
@@ -584,7 +609,7 @@ const EnfucePortal = () => {
             {['Visa', 'Mastercard'].map(scheme => (
               <button
                 key={scheme}
-                onClick={() => setNewProgram({...newProgram, scheme})}
+                onClick={() => updateProgram({ scheme })}
                 className={`flex-1 py-3 rounded-lg border font-medium transition-all ${
                   newProgram.scheme === scheme
                     ? 'bg-cyan-500/20 border-cyan-500 text-white'
@@ -600,7 +625,7 @@ const EnfucePortal = () => {
           <label className="block text-sm text-slate-300 mb-2">Currency</label>
           <select
             value={newProgram.currency}
-            onChange={(e) => setNewProgram({...newProgram, currency: e.target.value})}
+            onChange={(e) => updateProgram({ currency: e.target.value })}
             className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-cyan-500 outline-none"
           >
             <option value="EUR">EUR - Euro</option>
@@ -616,10 +641,11 @@ const EnfucePortal = () => {
         <input
           type="number"
           value={newProgram.estimatedCards}
-          onChange={(e) => setNewProgram({...newProgram, estimatedCards: parseInt(e.target.value) || 0})}
+          onChange={(e) => updateProgram({ estimatedCards: parseInt(e.target.value) || 0 })}
           placeholder="100"
           className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-cyan-500 outline-none"
           min="1"
+          autoComplete="off"
         />
         <div className="text-xs text-slate-500 mt-1">Used for pricing calculation</div>
       </div>
@@ -634,8 +660,9 @@ const EnfucePortal = () => {
           <input
             type="number"
             value={newProgram.dailyLimit}
-            onChange={(e) => setNewProgram({...newProgram, dailyLimit: parseInt(e.target.value)})}
+            onChange={(e) => updateProgram({ dailyLimit: parseInt(e.target.value) })}
             className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-cyan-500 outline-none"
+            autoComplete="off"
           />
         </div>
         <div>
@@ -643,8 +670,9 @@ const EnfucePortal = () => {
           <input
             type="number"
             value={newProgram.monthlyLimit}
-            onChange={(e) => setNewProgram({...newProgram, monthlyLimit: parseInt(e.target.value)})}
+            onChange={(e) => updateProgram({ monthlyLimit: parseInt(e.target.value) })}
             className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-cyan-500 outline-none"
+            autoComplete="off"
           />
         </div>
       </div>
@@ -657,14 +685,14 @@ const EnfucePortal = () => {
               key={mcc.code}
               onClick={() => {
                 const current = newProgram.mccRestrictions;
-                const updated = current.includes(mcc.code) 
+                const updated = current.includes(mcc.code)
                   ? current.filter(c => c !== mcc.code)
                   : [...current, mcc.code];
-                setNewProgram({...newProgram, mccRestrictions: updated});
+                updateProgram({ mccRestrictions: updated });
               }}
               className={`flex items-center gap-2 p-3 rounded-lg border text-left text-sm transition-all ${
                 newProgram.mccRestrictions.includes(mcc.code)
-                  ? 'bg-emerald-500/20 border-emerald-500 text-white' 
+                  ? 'bg-emerald-500/20 border-emerald-500 text-white'
                   : 'bg-slate-800/50 border-slate-700 text-slate-300 hover:border-slate-600'
               }`}
             >
@@ -691,8 +719,8 @@ const EnfucePortal = () => {
             <button
               key={option}
               className={`px-3 py-1.5 rounded-lg text-sm border transition-all ${
-                option === 'Europe Only' 
-                  ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300' 
+                option === 'Europe Only'
+                  ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300'
                   : 'bg-slate-700/50 border-slate-600 text-slate-400 hover:border-slate-500'
               }`}
             >
@@ -704,72 +732,162 @@ const EnfucePortal = () => {
     </div>
   );
 
-  const WizardStep4 = () => (
-    <div className="space-y-6">
-      <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700">
-        <div className="text-sm text-slate-400 mb-4">Card Preview</div>
-        <div className="relative w-80 h-48 mx-auto">
-          <div className="absolute inset-0 bg-gradient-to-br from-cyan-500 via-blue-600 to-purple-700 rounded-2xl shadow-2xl transform rotate-3" />
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 rounded-2xl shadow-xl border border-slate-600/50 p-6 flex flex-col justify-between">
-            <div className="flex justify-between items-start">
-              <div className="w-12 h-10 rounded bg-gradient-to-br from-yellow-400 to-yellow-600" />
-              <div className="text-right">
-                <div className="text-white font-bold text-lg">ENFUCE</div>
-                <div className="text-slate-400 text-xs">{newProgram.scheme || 'VISA'}</div>
-              </div>
-            </div>
-            <div>
-              <div className="text-slate-300 font-mono tracking-widest text-lg mb-2">
-                •••• •••• •••• 4242
-              </div>
-              <div className="flex justify-between items-end">
-                <div>
-                  <div className="text-slate-500 text-xs">CARDHOLDER</div>
-                  <div className="text-white text-sm">JOHN DOE</div>
-                </div>
+  const WizardStep4 = () => {
+    const getCardBackground = () => {
+      if (newProgram.cardBackgroundImage) {
+        return `url(${newProgram.cardBackgroundImage})`;
+      }
+
+      const designs = {
+        corporate: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+        premium: 'linear-gradient(135deg, #d97706 0%, #ca8a04 100%)',
+        ocean: 'linear-gradient(135deg, #06b6d4 0%, #1d4ed8 100%)',
+        sunset: 'linear-gradient(135deg, #f97316 0%, #ec4899 100%)',
+        custom: newProgram.cardColor
+      };
+
+      return designs[newProgram.cardDesign] || designs.corporate;
+    };
+
+    const handleImageUpload = (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          updateProgram({ cardBackgroundImage: reader.result, cardDesign: 'custom' });
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+
+    return (
+      <div className="space-y-6">
+        <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700">
+          <div className="text-sm text-slate-400 mb-4">Card Preview</div>
+          <div className="relative w-80 h-48 mx-auto">
+            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500 via-blue-600 to-purple-700 rounded-2xl shadow-2xl transform rotate-3" />
+            <div
+              className="absolute inset-0 rounded-2xl shadow-xl border border-slate-600/50 p-6 flex flex-col justify-between"
+              style={{
+                background: getCardBackground(),
+                backgroundSize: 'cover',
+                backgroundPosition: 'center'
+              }}
+            >
+              <div className="flex justify-between items-start">
+                <div className="w-12 h-10 rounded bg-gradient-to-br from-yellow-400 to-yellow-600" />
                 <div className="text-right">
-                  <div className="text-slate-500 text-xs">VALID THRU</div>
-                  <div className="text-white text-sm">12/28</div>
+                  <div className="text-white font-bold text-lg drop-shadow-lg">ENFUCE</div>
+                  <div className="text-slate-200 text-xs drop-shadow">{newProgram.scheme || 'VISA'}</div>
+                </div>
+              </div>
+              <div>
+                <div className="text-slate-100 font-mono tracking-widest text-lg mb-2 drop-shadow-lg">
+                  •••• •••• •••• 4242
+                </div>
+                <div className="flex justify-between items-end">
+                  <div>
+                    <div className="text-slate-300 text-xs drop-shadow">CARDHOLDER</div>
+                    <div className="text-white text-sm drop-shadow-lg">JOHN DOE</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-slate-300 text-xs drop-shadow">VALID THRU</div>
+                    <div className="text-white text-sm drop-shadow-lg">12/28</div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div>
-        <label className="block text-sm text-slate-300 mb-2">Card Design Template</label>
-        <div className="grid grid-cols-4 gap-3">
-          {[
-            { id: 'corporate', gradient: 'from-slate-700 to-slate-900' },
-            { id: 'premium', gradient: 'from-amber-600 to-yellow-800' },
-            { id: 'ocean', gradient: 'from-cyan-500 to-blue-700' },
-            { id: 'sunset', gradient: 'from-orange-500 to-pink-600' }
-          ].map(design => (
-            <button
-              key={design.id}
-              className={`h-20 rounded-xl bg-gradient-to-br ${design.gradient} border-2 transition-all ${
-                design.id === 'corporate' ? 'border-cyan-500 ring-2 ring-cyan-500/30' : 'border-transparent hover:border-slate-500'
-              }`}
-            />
-          ))}
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">📱</span>
-          <div>
-            <div className="text-white font-medium">Digital Wallet Provisioning</div>
-            <div className="text-sm text-slate-400">Apple Pay, Google Pay, Samsung Pay</div>
+        <div>
+          <label className="block text-sm text-slate-300 mb-2">Card Design Template</label>
+          <div className="grid grid-cols-4 gap-3">
+            {[
+              { id: 'corporate', gradient: 'from-slate-700 to-slate-900', label: 'Corporate' },
+              { id: 'premium', gradient: 'from-amber-600 to-yellow-800', label: 'Premium' },
+              { id: 'ocean', gradient: 'from-cyan-500 to-blue-700', label: 'Ocean' },
+              { id: 'sunset', gradient: 'from-orange-500 to-pink-600', label: 'Sunset' }
+            ].map(design => (
+              <button
+                key={design.id}
+                onClick={() => updateProgram({ cardDesign: design.id, cardBackgroundImage: null })}
+                className={`h-20 rounded-xl bg-gradient-to-br ${design.gradient} border-2 transition-all relative group ${
+                  newProgram.cardDesign === design.id ? 'border-cyan-500 ring-2 ring-cyan-500/30' : 'border-transparent hover:border-slate-500'
+                }`}
+              >
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl">
+                  <span className="text-white text-xs font-medium">{design.label}</span>
+                </div>
+              </button>
+            ))}
           </div>
         </div>
-        <div className="w-12 h-6 bg-cyan-500 rounded-full relative cursor-pointer">
-          <div className="absolute right-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow" />
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm text-slate-300 mb-2">Custom Color</label>
+            <div className="flex gap-2">
+              <input
+                type="color"
+                value={newProgram.cardColor}
+                onChange={(e) => updateProgram({ cardColor: e.target.value, cardDesign: 'custom', cardBackgroundImage: null })}
+                className="w-16 h-10 rounded-lg border border-slate-600 bg-slate-800 cursor-pointer"
+              />
+              <input
+                type="text"
+                value={newProgram.cardColor}
+                onChange={(e) => updateProgram({ cardColor: e.target.value, cardDesign: 'custom', cardBackgroundImage: null })}
+                className="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white text-sm focus:border-cyan-500 outline-none"
+                placeholder="#2C3E50"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm text-slate-300 mb-2">Background Image</label>
+            <div className="relative">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+                id="cardImageUpload"
+              />
+              <label
+                htmlFor="cardImageUpload"
+                className="flex items-center justify-center gap-2 w-full h-10 bg-slate-800 border border-slate-600 rounded-lg px-4 text-slate-300 hover:bg-slate-700 cursor-pointer transition-colors"
+              >
+                <span className="text-lg">📸</span>
+                <span className="text-sm">{newProgram.cardBackgroundImage ? 'Change Image' : 'Upload Image'}</span>
+              </label>
+            </div>
+            {newProgram.cardBackgroundImage && (
+              <button
+                onClick={() => updateProgram({ cardBackgroundImage: null })}
+                className="text-xs text-red-400 hover:text-red-300 mt-1"
+              >
+                Remove image
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg border border-slate-700">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">📱</span>
+            <div>
+              <div className="text-white font-medium">Digital Wallet Provisioning</div>
+              <div className="text-sm text-slate-400">Apple Pay, Google Pay, Samsung Pay</div>
+            </div>
+          </div>
+          <div className="w-12 h-6 bg-cyan-500 rounded-full relative cursor-pointer">
+            <div className="absolute right-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow" />
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const WizardStep5 = () => {
     const pricing = calculatePricing(newProgram);
@@ -860,29 +978,493 @@ const EnfucePortal = () => {
     );
   };
 
-  const CreateProgramWizard = () => {
-    const showLivePricing = pricingVariant === 'live' && wizardStep > 1 && wizardStep < 5;
+  // Chat state for conversational wizard
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatStep, setChatStep] = useState(0);
+  const [isTyping, setIsTyping] = useState(false);
+  const chatEndRef = useRef(null);
+
+  // Conversation flow for chat wizard
+  const conversationSteps = [
+    { question: "Hi! I'm here to help you create a new card program. What would you like to name your card program?", field: 'name', type: 'text' },
+    { question: "Great! What type of card program is this? (e.g., Corporate, Fleet/Fuel, Meal Card, Travel, Gift Card, or Transport)", field: 'type', type: 'select', options: ['corporate', 'fleet', 'meal', 'travel', 'gift', 'transport'] },
+    { question: "Perfect! What funding model would you like? (Prepaid, Debit, Credit, or Revolving)", field: 'fundingModel', type: 'select', options: ['prepaid', 'debit', 'credit', 'revolving'] },
+    { question: "Which card form factors should we include? You can choose multiple: Physical, Virtual, Tokenized (separate with commas)", field: 'formFactor', type: 'multiselect', options: ['physical', 'virtual', 'tokenized'] },
+    { question: "Which card scheme would you prefer? (Visa or Mastercard)", field: 'scheme', type: 'select', options: ['Visa', 'Mastercard'] },
+    { question: "What currency should the program use? (EUR, USD, GBP, or SEK)", field: 'currency', type: 'select', options: ['EUR', 'USD', 'GBP', 'SEK'] },
+    { question: "How many cards do you estimate you'll need?", field: 'estimatedCards', type: 'number' },
+    { question: "Almost done! What should the daily spending limit be? (in your selected currency)", field: 'dailyLimit', type: 'number' },
+    { question: "And what about the monthly spending limit?", field: 'monthlyLimit', type: 'number' },
+    { question: "Excellent! I've gathered all the information. Let me create your program summary...", field: 'complete', type: 'complete' }
+  ];
+
+  const addChatMessage = useCallback((message, isUser = false) => {
+    setChatMessages(prev => [...prev, { text: message, isUser, timestamp: new Date() }]);
+  }, []);
+
+  const simulateTyping = useCallback((message, callback) => {
+    setIsTyping(true);
+    setTimeout(() => {
+      setIsTyping(false);
+      addChatMessage(message, false);
+      if (callback) callback();
+    }, 500 + Math.random() * 500); // Simulate typing delay
+  }, [addChatMessage]);
+
+  const handleChatSubmit = useCallback((e) => {
+    e?.preventDefault();
+    if (!chatInput.trim() || chatStep >= conversationSteps.length) return;
+
+    const userMessage = chatInput.trim();
+    addChatMessage(userMessage, true);
+
+    const currentStep = conversationSteps[chatStep];
+    let processedValue = userMessage;
+
+    // Parse and validate response based on field type
+    if (currentStep.type === 'multiselect') {
+      const values = userMessage.toLowerCase().split(',').map(v => v.trim());
+      const validValues = values.filter(v => currentStep.options.some(opt => opt.toLowerCase().includes(v) || v.includes(opt.toLowerCase())));
+      processedValue = validValues.length > 0 ? validValues : [currentStep.options[0]];
+    } else if (currentStep.type === 'select') {
+      const foundOption = currentStep.options.find(opt =>
+        opt.toLowerCase().includes(userMessage.toLowerCase()) ||
+        userMessage.toLowerCase().includes(opt.toLowerCase())
+      );
+      processedValue = foundOption || currentStep.options[0];
+    } else if (currentStep.type === 'number') {
+      const num = parseInt(userMessage.replace(/[^0-9]/g, ''));
+      processedValue = isNaN(num) ? (currentStep.field === 'estimatedCards' ? 100 : 500) : num;
+    }
+
+    // Update program data
+    if (currentStep.field !== 'complete') {
+      updateProgram({ [currentStep.field]: processedValue });
+    }
+
+    setChatInput('');
+
+    // Track chat step completion
+    if (typeof gtag !== 'undefined') {
+      gtag('event', 'chat_wizard_step_completed', {
+        step: chatStep + 1,
+        field: currentStep.field,
+        step_name: currentStep.question.substring(0, 50)
+      });
+    }
+
+    // Move to next question
+    const nextStep = chatStep + 1;
+    if (nextStep < conversationSteps.length) {
+      simulateTyping(conversationSteps[nextStep].question, () => {
+        setChatStep(nextStep);
+      });
+    } else {
+      // Complete - show summary
+      simulateTyping("🎉 Perfect! Your card program is ready. Click 'Complete Program' to finish!", () => {
+        setChatStep(nextStep);
+      });
+    }
+  }, [chatInput, chatStep, addChatMessage, simulateTyping, updateProgram]);
+
+  // Initialize chat when wizard opens in chat mode
+  useEffect(() => {
+    if (showCreateWizard && wizardVariant === 'chat' && chatMessages.length === 0) {
+      // Track chat wizard start
+      if (typeof gtag !== 'undefined') {
+        gtag('event', 'chat_wizard_started', {
+          wizard_variant: 'chat',
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      simulateTyping(conversationSteps[0].question, () => {
+        setChatStep(0);
+      });
+    }
+  }, [showCreateWizard, wizardVariant, chatMessages.length, simulateTyping]);
+
+  // Auto-scroll chat to bottom
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages, isTyping]);
+
+  // Chat Wizard Modal
+  const renderChatWizard = () => {
+    const pricing = calculatePricing(newProgram);
+
+    const getCardBackground = () => {
+      if (newProgram.cardBackgroundImage) {
+        return `url(${newProgram.cardBackgroundImage})`;
+      }
+
+      const designs = {
+        corporate: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+        premium: 'linear-gradient(135deg, #d97706 0%, #ca8a04 100%)',
+        ocean: 'linear-gradient(135deg, #06b6d4 0%, #1d4ed8 100%)',
+        sunset: 'linear-gradient(135deg, #f97316 0%, #ec4899 100%)',
+        custom: newProgram.cardColor
+      };
+
+      return designs[newProgram.cardDesign] || designs.corporate;
+    };
 
     return (
-      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div className={`bg-slate-900 rounded-2xl border border-slate-700 w-full ${showLivePricing ? 'max-w-6xl' : 'max-w-3xl'} max-h-[90vh] overflow-hidden flex flex-col`}>
-          <div className="p-6 border-b border-slate-700 flex justify-between items-center">
-            <div>
-              <h2 className="text-xl font-bold text-white">Create Card Program</h2>
-              <p className="text-slate-400 text-sm mt-1">Configure your new card program</p>
+      <div className="fixed inset-0 bg-[#1a2332] z-50 flex overflow-hidden">
+        {/* Main Chat Area */}
+        <div className="flex-1 flex flex-col">
+          {/* Header */}
+          <div className="p-6 border-b border-[#7DD3C0]/20 flex justify-between items-center bg-[#2C3E50]/50">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#7DD3C0] to-[#7DD3C0]/60 flex items-center justify-center text-2xl">
+                🤖
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-white">AI Program Assistant</h2>
+                <p className="text-[#7DD3C0] text-sm">Let's create your card program together</p>
+              </div>
             </div>
             <button
-              onClick={() => {setShowCreateWizard(false); setWizardStep(1);}}
-              className="text-slate-400 hover:text-white text-2xl"
+              onClick={() => {
+                setShowCreateWizard(false);
+                setChatMessages([]);
+                setChatStep(0);
+                setChatInput('');
+                // Track chat wizard abandonment
+                if (typeof gtag !== 'undefined') {
+                  gtag('event', 'chat_wizard_abandoned', {
+                    step: chatStep,
+                    messages_count: chatMessages.length
+                  });
+                }
+              }}
+              className="text-[#7DD3C0] hover:text-[#FFD93D] text-4xl font-light transition-colors"
             >
               ×
             </button>
           </div>
 
-          <div className="p-6 overflow-y-auto flex-1 flex gap-6">
-            <div className={`${showLivePricing ? 'flex-1' : 'w-full'}`}>
+          {/* Chat Messages */}
+          <div className="flex-1 overflow-y-auto p-8 space-y-4">
+            {chatMessages.map((msg, idx) => (
+              <div key={idx} className={`flex ${msg.isUser ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[70%] rounded-2xl px-5 py-4 ${
+                  msg.isUser
+                    ? 'bg-[#7DD3C0] text-[#2C3E50]'
+                    : 'bg-[#2C3E50]/50 text-white border border-[#7DD3C0]/20'
+                }`}>
+                  <p className="text-base">{msg.text}</p>
+                </div>
+              </div>
+            ))}
+
+            {isTyping && (
+              <div className="flex justify-start">
+                <div className="bg-[#2C3E50]/50 text-white border border-[#7DD3C0]/20 rounded-2xl px-5 py-4">
+                  <div className="flex gap-1">
+                    <span className="w-2 h-2 bg-[#7DD3C0] rounded-full animate-bounce"></span>
+                    <span className="w-2 h-2 bg-[#7DD3C0] rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></span>
+                    <span className="w-2 h-2 bg-[#7DD3C0] rounded-full animate-bounce" style={{animationDelay: '0.4s'}}></span>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* Input Area */}
+          <div className="p-6 border-t border-[#7DD3C0]/20 bg-[#2C3E50]/30">
+            {chatStep < conversationSteps.length - 1 ? (
+              <form onSubmit={handleChatSubmit} className="flex gap-3">
+                <input
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  placeholder="Type your answer..."
+                  className="flex-1 bg-slate-800 border border-slate-600 rounded-xl px-5 py-4 text-white placeholder-slate-500 focus:border-[#7DD3C0] focus:ring-2 focus:ring-[#7DD3C0] outline-none text-lg"
+                  autoFocus
+                />
+                <button
+                  type="submit"
+                  disabled={!chatInput.trim() || isTyping}
+                  className="px-8 py-4 bg-[#FFD93D] text-[#2C3E50] rounded-xl font-bold hover:bg-[#FFC700] disabled:opacity-50 disabled:cursor-not-allowed transition-all text-lg"
+                >
+                  Send
+                </button>
+              </form>
+            ) : (
+              <button
+                onClick={() => {
+                  trackPurchase();
+                  // Track chat wizard completion
+                  if (typeof gtag !== 'undefined') {
+                    gtag('event', 'chat_wizard_completed', {
+                      messages_count: chatMessages.length,
+                      program_name: newProgram.name
+                    });
+                  }
+                  setShowCreateWizard(false);
+                  setChatMessages([]);
+                  setChatStep(0);
+                }}
+                className="w-full px-8 py-4 bg-[#7DD3C0] text-[#2C3E50] rounded-xl font-bold hover:bg-[#6BC3B0] transition-all shadow-lg text-lg"
+              >
+                🎉 Complete Program
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Side Panel - Program Summary */}
+        <div className="w-[480px] bg-[#0f1419] border-l border-[#7DD3C0]/20 overflow-y-auto hidden lg:block">
+          <div className="p-6 space-y-6">
+            {/* Program Summary Header */}
+            <div>
+              <h3 className="text-xl font-bold text-white mb-2">Program Summary</h3>
+              <p className="text-slate-400 text-sm">Real-time preview of your card program</p>
+            </div>
+
+            {/* Card Preview */}
+            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700/50">
+              <div className="text-sm text-slate-400 mb-4 font-semibold">Card Preview</div>
+              <div className="relative w-full h-48">
+                <div className="absolute inset-0 bg-gradient-to-br from-cyan-500 via-blue-600 to-purple-700 rounded-2xl shadow-2xl transform rotate-2" />
+                <div
+                  className="absolute inset-0 rounded-2xl shadow-xl border border-slate-600/50 p-6 flex flex-col justify-between"
+                  style={{
+                    background: getCardBackground(),
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center'
+                  }}
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="w-12 h-10 rounded bg-gradient-to-br from-yellow-400 to-yellow-600" />
+                    <div className="text-right">
+                      <div className="text-white font-bold text-lg drop-shadow-lg">ENFUCE</div>
+                      <div className="text-slate-200 text-xs drop-shadow">{newProgram.scheme || 'VISA'}</div>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-slate-100 font-mono tracking-widest text-lg mb-2 drop-shadow-lg">
+                      •••• •••• •••• 4242
+                    </div>
+                    <div className="flex justify-between items-end">
+                      <div>
+                        <div className="text-slate-300 text-xs drop-shadow">CARDHOLDER</div>
+                        <div className="text-white text-sm drop-shadow-lg">JOHN DOE</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-slate-300 text-xs drop-shadow">VALID THRU</div>
+                        <div className="text-white text-sm drop-shadow-lg">12/28</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Program Details */}
+            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700/50 space-y-4">
+              <div className="text-sm font-semibold text-slate-300 mb-3">Program Details</div>
+
+              {newProgram.name && (
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">Program Name</div>
+                  <div className="text-white font-medium">{newProgram.name}</div>
+                </div>
+              )}
+
+              {newProgram.type && (
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">Card Type</div>
+                  <div className="text-white font-medium capitalize">{newProgram.type}</div>
+                </div>
+              )}
+
+              {newProgram.scheme && (
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">Card Network</div>
+                  <div className="text-white font-medium">{newProgram.scheme}</div>
+                </div>
+              )}
+
+              {newProgram.targetAudience && (
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">Target Audience</div>
+                  <div className="text-white font-medium">{newProgram.targetAudience}</div>
+                </div>
+              )}
+
+              {newProgram.estimatedCards && (
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">Estimated Cards</div>
+                  <div className="text-white font-medium">{newProgram.estimatedCards.toLocaleString()}</div>
+                </div>
+              )}
+
+              {newProgram.budgetPerCard && (
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">Budget per Card</div>
+                  <div className="text-white font-medium">€{newProgram.budgetPerCard}</div>
+                </div>
+              )}
+
+              {newProgram.features && newProgram.features.length > 0 && (
+                <div>
+                  <div className="text-xs text-slate-500 mb-2">Features</div>
+                  <div className="flex flex-wrap gap-2">
+                    {newProgram.features.map((feature, idx) => (
+                      <span key={idx} className="px-3 py-1 bg-[#7DD3C0]/20 text-[#7DD3C0] rounded-full text-xs">
+                        {feature}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Pricing Breakdown */}
+            {(newProgram.estimatedCards || newProgram.budgetPerCard) && (
+              <div className="bg-gradient-to-br from-[#7DD3C0]/10 to-[#FFD93D]/10 rounded-xl p-6 border border-[#7DD3C0]/30">
+                <div className="text-sm font-semibold text-[#7DD3C0] mb-4">💰 Estimated Pricing</div>
+
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-300 text-sm">Setup Fee</span>
+                    <span className="text-white font-medium">€{pricing.breakdown.setupFee}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-300 text-sm">Card Production</span>
+                    <span className="text-white font-medium">€{Math.round(pricing.breakdown.formFactorCost)}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-300 text-sm">Annual Platform Fee</span>
+                    <span className="text-white font-medium">€{Math.round(pricing.breakdown.monthlyFee * 12)}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-300 text-sm">Transaction Fees (Est.)</span>
+                    <span className="text-white font-medium">€{Math.round(pricing.breakdown.annualTransactionFees)}</span>
+                  </div>
+
+                  <div className="border-t border-[#7DD3C0]/30 pt-3 mt-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-white font-bold">Total (First Year)</span>
+                      <span className="text-[#FFD93D] font-bold text-xl">€{pricing.total.toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-3">
+                    <div className="bg-slate-800/50 rounded-lg p-3">
+                      <div className="text-xs text-slate-400 mb-1">Per Card</div>
+                      <div className="text-white font-semibold">€{pricing.perCard}</div>
+                    </div>
+                    <div className="bg-slate-800/50 rounded-lg p-3">
+                      <div className="text-xs text-slate-400 mb-1">Monthly</div>
+                      <div className="text-white font-semibold">€{pricing.monthly}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Progress Indicator */}
+            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700/50">
+              <div className="text-sm text-slate-400 mb-3">Progress</div>
+              <div className="flex items-center gap-3">
+                <div className="flex-1 bg-slate-700 rounded-full h-2">
+                  <div
+                    className="bg-gradient-to-r from-[#7DD3C0] to-[#FFD93D] h-2 rounded-full transition-all duration-500"
+                    style={{ width: `${(chatStep / (conversationSteps.length - 1)) * 100}%` }}
+                  />
+                </div>
+                <div className="text-white font-semibold text-sm">
+                  {Math.round((chatStep / (conversationSteps.length - 1)) * 100)}%
+                </div>
+              </div>
+              <div className="text-xs text-slate-400 mt-2">
+                Step {chatStep + 1} of {conversationSteps.length}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Wizard modal JSX - defined here to avoid recreation issues
+  const renderWizardModal = () => {
+    const showLivePricing = pricingVariant === 'live' && wizardStep > 1 && wizardStep < 5;
+
+    return (
+      <div className="fixed inset-0 bg-[#2C3E50]/95 backdrop-blur-sm flex items-center justify-center z-50 p-0 sm:p-4" onClick={(e) => e.target === e.currentTarget && setShowCreateWizard(false)}>
+        <div className={`bg-[#1a2332] sm:rounded-2xl border-0 sm:border-2 border-[#7DD3C0]/30 w-full h-full sm:h-auto ${showLivePricing ? 'sm:max-w-6xl' : 'sm:max-w-3xl'} sm:max-h-[90vh] overflow-hidden flex flex-col shadow-2xl`} onClick={(e) => e.stopPropagation()}>
+          <div className="p-4 sm:p-6 border-b border-[#7DD3C0]/20 flex justify-between items-center bg-[#2C3E50]/50">
+            <div>
+              <h2 className="text-xl sm:text-2xl font-bold text-white">Create Card Program</h2>
+              <p className="text-[#7DD3C0] text-xs sm:text-sm mt-1 hidden sm:block">Configure your new card program</p>
+            </div>
+            <button
+              onClick={() => {setShowCreateWizard(false); setWizardStep(1);}}
+              className="text-[#7DD3C0] hover:text-[#FFD93D] text-3xl font-light transition-colors"
+            >
+              ×
+            </button>
+          </div>
+
+          <div ref={scrollContainerRef} className="p-4 sm:p-6 overflow-y-auto flex-1 flex flex-col lg:flex-row gap-4 sm:gap-6">
+            <div className={`${showLivePricing ? 'lg:flex-1' : 'w-full'}`}>
               <WizardStepIndicator />
-              {wizardStep === 1 && <WizardStep1 />}
+
+              {/* Step 1: Program Name & Type */}
+              {wizardStep === 1 && (
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm text-slate-300 mb-2">Program Name</label>
+                    <input
+                      type="text"
+                      value={newProgram.name}
+                      onChange={(e) => updateProgram({ name: e.target.value })}
+                      placeholder="e.g., Executive Travel Card"
+                      className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none"
+                      autoComplete="off"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-slate-300 mb-2">Program Type</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { id: 'corporate', label: 'Corporate', desc: 'Employee expenses', icon: '💼' },
+                        { id: 'fleet', label: 'Fleet/Fuel', desc: 'Vehicle operations', icon: '🚗' },
+                        { id: 'meal', label: 'Meal Card', desc: 'Employee benefits', icon: '🍽️' },
+                        { id: 'travel', label: 'Travel', desc: 'Business trips', icon: '✈️' },
+                        { id: 'gift', label: 'Gift Card', desc: 'Rewards & incentives', icon: '🎁' },
+                        { id: 'transport', label: 'Transport', desc: 'Commute expenses', icon: '🚇' }
+                      ].map(type => (
+                        <button
+                          key={type.id}
+                          onClick={() => updateProgram({ type: type.id })}
+                          className={`p-4 rounded-xl border text-left transition-all ${
+                            newProgram.type === type.id
+                              ? 'bg-cyan-500/20 border-cyan-500 text-white'
+                              : 'bg-slate-800/50 border-slate-700 text-slate-300 hover:border-slate-600'
+                          }`}
+                        >
+                          <span className="text-2xl">{type.icon}</span>
+                          <div className="font-medium mt-2">{type.label}</div>
+                          <div className="text-xs text-slate-400">{type.desc}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Render other steps (keeping component functions for now to minimize changes) */}
               {wizardStep === 2 && <WizardStep2 />}
               {wizardStep === 3 && <WizardStep3 />}
               {wizardStep === 4 && <WizardStep4 />}
@@ -891,19 +1473,19 @@ const EnfucePortal = () => {
 
             {/* Live Pricing Sidebar (for live pricing variants only) */}
             {showLivePricing && (
-              <div className="w-80">
+              <div className="w-full lg:w-80">
                 <LivePricingSidebar />
               </div>
             )}
           </div>
 
-          <div className="p-6 border-t border-slate-700 flex justify-between">
+          <div className="p-4 sm:p-6 border-t border-[#7DD3C0]/20 flex justify-between bg-[#2C3E50]/30">
             <button
               onClick={() => setWizardStep(Math.max(1, wizardStep - 1))}
-              className={`px-6 py-2.5 rounded-lg font-medium transition-all ${
+              className={`px-4 sm:px-6 py-2.5 rounded-lg font-semibold transition-all text-sm sm:text-base ${
                 wizardStep === 1
                   ? 'text-slate-600 cursor-not-allowed'
-                  : 'text-slate-300 hover:bg-slate-800'
+                  : 'text-[#7DD3C0] hover:bg-[#2C3E50] border border-[#7DD3C0]/30'
               }`}
               disabled={wizardStep === 1}
             >
@@ -920,13 +1502,13 @@ const EnfucePortal = () => {
                   setWizardStep(1);
                 }
               }}
-              className={`px-6 py-2.5 rounded-lg font-medium transition-all ${
+              className={`px-6 sm:px-8 py-2.5 rounded-lg font-bold transition-all text-sm sm:text-base ${
                 wizardStep === 5
-                  ? 'bg-gradient-to-r from-emerald-500 to-green-500 text-white hover:from-emerald-400 hover:to-green-400'
-                  : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:from-cyan-400 hover:to-blue-400'
+                  ? 'bg-[#7DD3C0] text-[#2C3E50] hover:bg-[#6BC3B0] shadow-lg'
+                  : 'bg-[#FFD93D] text-[#2C3E50] hover:bg-[#FFC700] shadow-lg'
               }`}
             >
-              {wizardStep === 5 ? '🛒 Purchase Program' : 'Continue'}
+              {wizardStep === 5 ? '🛒 Purchase' : 'Continue'}
             </button>
           </div>
         </div>
@@ -935,61 +1517,65 @@ const EnfucePortal = () => {
   };
 
   const ProgramDetail = ({ program }) => (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-900 rounded-2xl border border-slate-700 w-full max-w-4xl max-h-[90vh] overflow-hidden">
-        <div className="p-6 border-b border-slate-700 flex justify-between items-center">
+    <div className="fixed inset-0 bg-[#2C3E50]/95 backdrop-blur-sm flex items-center justify-center z-50 p-0 sm:p-4">
+      <div className="bg-[#1a2332] sm:rounded-2xl border-0 sm:border-2 border-[#7DD3C0]/30 w-full h-full sm:h-auto sm:max-w-4xl sm:max-h-[90vh] overflow-hidden shadow-2xl">
+        <div className="p-4 sm:p-6 border-b border-[#7DD3C0]/20 flex justify-between items-center bg-[#2C3E50]/50">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-2xl">
+            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#7DD3C0] to-[#7DD3C0]/60 flex items-center justify-center text-3xl shadow-lg">
               💳
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">{program.name}</h2>
+              <h2 className="text-2xl font-bold text-white">{program.name}</h2>
               <div className="flex items-center gap-2 mt-1">
                 <StatusBadge status={program.status} />
-                <span className="text-slate-400 text-sm">{program.scheme}</span>
+                <span className="text-[#7DD3C0] text-sm font-medium">{program.scheme}</span>
               </div>
             </div>
           </div>
-          <button 
+          <button
             onClick={() => setSelectedProgram(null)}
-            className="text-slate-400 hover:text-white text-2xl"
+            className="text-[#7DD3C0] hover:text-[#FFD93D] text-3xl font-light transition-colors"
           >
             ×
           </button>
         </div>
-        
-        <div className="p-6 overflow-y-auto">
-          <div className="grid grid-cols-4 gap-4 mb-6">
-            <StatsCard icon="💳" label="Active Cards" value={program.cards.toLocaleString()} color="text-cyan-400" />
-            <StatsCard icon="💰" label="Total Spend" value={program.spend} color="text-emerald-400" />
-            <StatsCard icon="📊" label="Avg Transaction" value="€47.20" color="text-amber-400" />
+
+        <div className="p-4 sm:p-6 overflow-y-auto">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
+            <StatsCard icon="💳" label="Active Cards" value={program.cards.toLocaleString()} color="text-[#7DD3C0]" />
+            <StatsCard icon="💰" label="Total Spend" value={program.spend} color="text-[#FFD93D]" />
+            <StatsCard icon="📊" label="Avg Transaction" value="€47.20" color="text-[#7DD3C0]" />
             <StatsCard icon="🔒" label="Declined" value="2.1%" color="text-red-400" />
           </div>
 
-          <div className="grid grid-cols-2 gap-6">
-            <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-5">
-              <h3 className="text-white font-semibold mb-4">Spend Controls</h3>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+            <div className="bg-[#2C3E50]/50 rounded-xl border border-[#7DD3C0]/20 p-4 sm:p-5">
+              <h3 className="text-white font-bold mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
+                <span className="text-[#7DD3C0]">⚙️</span> Spend Controls
+              </h3>
+              <div className="space-y-2 sm:space-y-3">
+                <div className="flex justify-between items-center text-sm sm:text-base">
                   <span className="text-slate-400">Daily Limit</span>
-                  <span className="text-white font-medium">€500</span>
+                  <span className="text-[#7DD3C0] font-semibold">€500</span>
                 </div>
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center text-sm sm:text-base">
                   <span className="text-slate-400">Monthly Limit</span>
-                  <span className="text-white font-medium">€5,000</span>
+                  <span className="text-[#7DD3C0] font-semibold">€5,000</span>
                 </div>
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center text-sm sm:text-base">
                   <span className="text-slate-400">Per Transaction</span>
-                  <span className="text-white font-medium">€250</span>
+                  <span className="text-[#7DD3C0] font-semibold">€250</span>
                 </div>
               </div>
             </div>
 
-            <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-5">
-              <h3 className="text-white font-semibold mb-4">Allowed Categories</h3>
+            <div className="bg-[#2C3E50]/50 rounded-xl border border-[#7DD3C0]/20 p-4 sm:p-5">
+              <h3 className="text-white font-bold mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
+                <span className="text-[#7DD3C0]">🏷️</span> Allowed Categories
+              </h3>
               <div className="flex flex-wrap gap-2">
                 {['🍽️ Restaurants', '✈️ Airlines', '🏨 Hotels', '🚕 Transport'].map(cat => (
-                  <span key={cat} className="px-3 py-1 bg-slate-700/50 rounded-lg text-sm text-slate-300">
+                  <span key={cat} className="px-2 sm:px-3 py-1 bg-[#7DD3C0]/10 border border-[#7DD3C0]/30 rounded-lg text-xs sm:text-sm text-[#7DD3C0] font-medium">
                     {cat}
                   </span>
                 ))}
@@ -997,14 +1583,14 @@ const EnfucePortal = () => {
             </div>
           </div>
 
-          <div className="mt-6 flex gap-3">
-            <button className="flex-1 py-3 bg-cyan-500/20 text-cyan-300 rounded-lg font-medium hover:bg-cyan-500/30 transition-all border border-cyan-500/30">
+          <div className="mt-4 sm:mt-6 flex flex-col sm:flex-row gap-2 sm:gap-3">
+            <button className="flex-1 py-3 sm:py-3 bg-[#FFD93D] text-[#2C3E50] rounded-lg font-bold hover:bg-[#FFC700] transition-all shadow-md text-sm sm:text-base">
               Edit Configuration
             </button>
-            <button className="flex-1 py-3 bg-slate-700/50 text-slate-300 rounded-lg font-medium hover:bg-slate-700 transition-all border border-slate-600">
+            <button className="flex-1 py-3 sm:py-3 bg-[#2C3E50] text-[#7DD3C0] rounded-lg font-semibold hover:bg-[#2C3E50]/80 transition-all border border-[#7DD3C0]/30 text-sm sm:text-base">
               Issue New Card
             </button>
-            <button className="flex-1 py-3 bg-slate-700/50 text-slate-300 rounded-lg font-medium hover:bg-slate-700 transition-all border border-slate-600">
+            <button className="flex-1 py-3 sm:py-3 bg-[#2C3E50] text-[#7DD3C0] rounded-lg font-semibold hover:bg-[#2C3E50]/80 transition-all border border-[#7DD3C0]/30 text-sm sm:text-base">
               View Transactions
             </button>
           </div>
@@ -1014,41 +1600,41 @@ const EnfucePortal = () => {
   );
 
   const Dashboard = () => (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-          <p className="text-slate-400 mt-1">Overview of your card programs</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Dashboard</h1>
+          <p className="text-slate-400 mt-1 text-sm sm:text-base">Overview of your card programs</p>
         </div>
         {/* A/B Test: Show CTA in dashboard only for Variant B (control) */}
         {abTestVariant === 'B' && (
           <button
             onClick={() => handleOpenWizard('dashboard')}
-            className="px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg font-medium hover:from-cyan-400 hover:to-blue-400 transition-all flex items-center gap-2"
+            className="px-4 sm:px-5 py-2.5 bg-[#FFD93D] text-[#2C3E50] rounded-lg font-semibold hover:bg-[#FFC700] transition-all flex items-center gap-2 shadow-lg text-sm sm:text-base w-full sm:w-auto justify-center"
           >
             <span>+</span> New Program
           </button>
         )}
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
-        <StatsCard icon="💳" label="Total Cards" value="4,248" change={12} color="text-cyan-400" />
-        <StatsCard icon="💰" label="Monthly Volume" value="€2.78M" change={8} color="text-emerald-400" />
-        <StatsCard icon="📊" label="Active Programs" value="5" color="text-amber-400" />
-        <StatsCard icon="✅" label="Approval Rate" value="97.8%" change={2} color="text-purple-400" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatsCard icon="💳" label="Total Cards" value="4,248" change={12} color="text-[#7DD3C0]" />
+        <StatsCard icon="💰" label="Monthly Volume" value="€2.78M" change={8} color="text-[#FFD93D]" />
+        <StatsCard icon="📊" label="Active Programs" value="5" color="text-[#7DD3C0]" />
+        <StatsCard icon="✅" label="Approval Rate" value="97.8%" change={2} color="text-[#FFD93D]" />
       </div>
 
-      <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl overflow-hidden">
-        <div className="p-5 border-b border-slate-700/50 flex justify-between items-center">
-          <h2 className="text-lg font-semibold text-white">Card Programs</h2>
+      <div className="bg-[#1a2332] backdrop-blur border-2 border-[#7DD3C0]/20 rounded-xl overflow-hidden shadow-lg">
+        <div className="p-5 border-b border-[#7DD3C0]/20 flex justify-between items-center bg-[#2C3E50]/30">
+          <h2 className="text-lg font-bold text-white">Card Programs</h2>
           <div className="flex gap-2">
             {['All', 'Active', 'Draft'].map(filter => (
               <button
                 key={filter}
-                className={`px-3 py-1 rounded-lg text-sm ${
-                  filter === 'All' 
-                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' 
-                    : 'text-slate-400 hover:bg-slate-700'
+                className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${
+                  filter === 'All'
+                    ? 'bg-[#7DD3C0]/20 text-[#7DD3C0] border border-[#7DD3C0]/40'
+                    : 'text-slate-400 hover:bg-[#2C3E50] hover:text-[#7DD3C0]'
                 }`}
               >
                 {filter}
@@ -1056,33 +1642,45 @@ const EnfucePortal = () => {
             ))}
           </div>
         </div>
-        <div className="divide-y divide-slate-700/50">
+        <div className="divide-y divide-[#7DD3C0]/10">
           {cardPrograms.map(program => (
-            <div 
+            <div
               key={program.id}
               onClick={() => setSelectedProgram(program)}
-              className="p-5 flex items-center justify-between hover:bg-slate-800/50 cursor-pointer transition-all"
+              className="p-4 sm:p-5 hover:bg-[#2C3E50]/50 cursor-pointer transition-all group"
             >
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-xl border border-slate-600">
-                  💳
+              <div className="flex items-start sm:items-center justify-between gap-3">
+                <div className="flex items-start sm:items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-gradient-to-br from-[#7DD3C0]/20 to-[#7DD3C0]/10 flex items-center justify-center text-xl sm:text-2xl border-2 border-[#7DD3C0]/30 group-hover:border-[#FFD93D]/50 transition-colors flex-shrink-0">
+                    💳
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-white font-semibold group-hover:text-[#7DD3C0] transition-colors text-sm sm:text-base truncate">{program.name}</div>
+                    <div className="text-slate-400 text-xs sm:text-sm">{program.type} • {program.scheme}</div>
+                    <div className="flex items-center gap-3 mt-2 sm:hidden">
+                      <div className="text-xs">
+                        <span className="text-white font-semibold">{program.cards.toLocaleString()}</span>
+                        <span className="text-slate-500 ml-1">Cards</span>
+                      </div>
+                      <div className="text-xs">
+                        <span className="text-white font-semibold">{program.spend}</span>
+                        <span className="text-slate-500 ml-1">Vol</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <div className="text-white font-medium">{program.name}</div>
-                  <div className="text-slate-400 text-sm">{program.type} • {program.scheme}</div>
+                <div className="flex items-center gap-4 sm:gap-8 flex-shrink-0">
+                  <div className="text-right hidden sm:block">
+                    <div className="text-white font-semibold">{program.cards.toLocaleString()}</div>
+                    <div className="text-slate-500 text-xs">Cards</div>
+                  </div>
+                  <div className="text-right hidden sm:block">
+                    <div className="text-white font-semibold">{program.spend}</div>
+                    <div className="text-slate-500 text-xs">Volume</div>
+                  </div>
+                  <StatusBadge status={program.status} />
+                  <span className="text-[#7DD3C0] group-hover:text-[#FFD93D] transition-colors hidden sm:inline">→</span>
                 </div>
-              </div>
-              <div className="flex items-center gap-8">
-                <div className="text-right">
-                  <div className="text-white font-medium">{program.cards.toLocaleString()}</div>
-                  <div className="text-slate-500 text-xs">Cards</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-white font-medium">{program.spend}</div>
-                  <div className="text-slate-500 text-xs">Volume</div>
-                </div>
-                <StatusBadge status={program.status} />
-                <span className="text-slate-500">→</span>
               </div>
             </div>
           ))}
@@ -1250,6 +1848,113 @@ const EnfucePortal = () => {
           </div>
         </div>
 
+        {/* Chat Wizard Analytics */}
+        <div className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-6">
+          <h2 className="text-lg font-semibold text-white mb-6">🤖 Chat Wizard Analytics</h2>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Wizard Variant Distribution */}
+            <div className="bg-slate-900/50 rounded-xl border border-slate-700 p-5">
+              <h3 className="text-white font-semibold mb-4">Wizard Type Distribution</h3>
+              <div className="space-y-3">
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-slate-400 text-sm">Traditional Wizard</span>
+                    <span className="text-white font-medium">{analyticsData?.chatWizard?.traditionalCount || 0}</span>
+                  </div>
+                  <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-blue-500 to-cyan-500"
+                      style={{width: `${analyticsData?.chatWizard?.traditionalPercent || 0}%`}}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-slate-400 text-sm">Chat Wizard</span>
+                    <span className="text-white font-medium">{analyticsData?.chatWizard?.chatCount || 0}</span>
+                  </div>
+                  <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-[#7DD3C0] to-[#FFD93D]"
+                      style={{width: `${analyticsData?.chatWizard?.chatPercent || 0}%`}}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Chat Wizard Completion Rates */}
+            <div className="bg-slate-900/50 rounded-xl border border-slate-700 p-5">
+              <h3 className="text-white font-semibold mb-4">Chat Wizard Metrics</h3>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400 text-sm">Started</span>
+                  <span className="text-white font-medium">{analyticsData?.chatWizard?.started || 0}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400 text-sm">Completed</span>
+                  <span className="text-emerald-400 font-medium">{analyticsData?.chatWizard?.completed || 0}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400 text-sm">Abandoned</span>
+                  <span className="text-red-400 font-medium">{analyticsData?.chatWizard?.abandoned || 0}</span>
+                </div>
+                <div className="pt-3 border-t border-slate-700">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-400 text-sm">Completion Rate</span>
+                    <span className="text-[#7DD3C0] font-semibold text-lg">
+                      {analyticsData?.chatWizard?.completionRate || 0}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Average Engagement */}
+            <div className="bg-slate-900/50 rounded-xl border border-slate-700 p-5">
+              <h3 className="text-white font-semibold mb-4">Engagement Metrics</h3>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400 text-sm">Avg. Messages</span>
+                  <span className="text-white font-medium">{analyticsData?.chatWizard?.avgMessages || 0}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400 text-sm">Avg. Steps Completed</span>
+                  <span className="text-white font-medium">{analyticsData?.chatWizard?.avgStepsCompleted || 0}/10</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400 text-sm">Most Common Drop-off</span>
+                  <span className="text-amber-400 font-medium">Step {analyticsData?.chatWizard?.commonDropoffStep || '-'}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Step-by-Step Funnel for Chat Wizard */}
+          {analyticsData?.chatWizard?.stepFunnel && (
+            <div className="mt-6">
+              <h3 className="text-white font-semibold mb-4">Chat Wizard Step Completion</h3>
+              <div className="space-y-2">
+                {analyticsData.chatWizard.stepFunnel.map((step, idx) => (
+                  <div key={idx}>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-slate-400 text-sm">Step {idx + 1}: {step.name}</span>
+                      <span className="text-white font-medium">{step.count} ({step.rate}%)</span>
+                    </div>
+                    <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-[#7DD3C0] to-[#FFD93D]"
+                        style={{width: `${step.rate}%`}}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Refresh Button */}
         <button
           onClick={fetchAnalytics}
@@ -1339,39 +2044,39 @@ const EnfucePortal = () => {
   );
 
   return (
-    <div className="min-h-screen bg-slate-950 flex" style={{fontFamily: "'Inter', system-ui, sans-serif"}}>
+    <div className="min-h-screen bg-[#2C3E50] flex flex-col lg:flex-row" style={{fontFamily: "'Inter', system-ui, sans-serif"}}>
       <SideNav />
       <div className="flex-1 overflow-auto">
-        <header className="sticky top-0 bg-slate-950/80 backdrop-blur-xl border-b border-slate-800/50 px-8 py-4 flex justify-between items-center z-10">
-          <div className="flex items-center gap-4">
-            <div className="relative">
+        <header className="sticky top-0 bg-[#2C3E50]/95 backdrop-blur-xl border-b border-[#7DD3C0]/20 px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 sm:gap-4 z-10">
+          <div className="flex items-center gap-2 sm:gap-4 flex-1">
+            <div className="relative flex-1 sm:flex-initial">
               <input
                 type="text"
-                placeholder="Search programs, cards, transactions..."
-                className="w-80 bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-2 pl-10 text-sm text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none"
+                placeholder="Search..."
+                className="w-full sm:w-60 lg:w-80 bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-2 pl-10 text-sm text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none"
               />
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 justify-between sm:justify-end">
             {/* A/B Test: Show CTA in header for Variant A */}
             {abTestVariant === 'A' && (
               <button
                 onClick={() => handleOpenWizard('header')}
-                className="px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg font-medium hover:from-cyan-400 hover:to-blue-400 transition-all flex items-center gap-2"
+                className="px-4 sm:px-5 py-2.5 bg-[#FFD93D] text-[#2C3E50] rounded-lg font-semibold hover:bg-[#FFC700] transition-all flex items-center gap-2 shadow-lg text-sm sm:text-base"
               >
-                <span>+</span> New Program
+                <span>+</span> <span className="hidden sm:inline">New Program</span><span className="sm:hidden">New</span>
               </button>
             )}
-            <button className="p-2 text-slate-400 hover:text-white relative">
+            <button className="p-2 text-slate-400 hover:text-white relative flex-shrink-0">
               🔔
               <span className="absolute top-1 right-1 w-2 h-2 bg-cyan-500 rounded-full" />
             </button>
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-white font-medium">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-white font-medium text-sm">
                 UN
               </div>
-              <div className="text-sm">
+              <div className="text-xs sm:text-sm hidden sm:block">
                 <div className="text-white font-medium">Maria Chen</div>
                 <div className="text-slate-500 text-xs">Program Administrator</div>
               </div>
@@ -1379,7 +2084,7 @@ const EnfucePortal = () => {
           </div>
         </header>
         
-        <main className="p-8">
+        <main className="p-4 sm:p-6 lg:p-8">
           {activeSection === 'dashboard' && <Dashboard />}
           {activeSection === 'programs' && <Dashboard />}
           {activeSection === 'analytics' && <AnalyticsSection />}
@@ -1396,7 +2101,7 @@ const EnfucePortal = () => {
         </main>
       </div>
       
-      {showCreateWizard && <CreateProgramWizard />}
+      {showCreateWizard && (wizardVariant === 'chat' ? renderChatWizard() : renderWizardModal())}
       {selectedProgram && <ProgramDetail program={selectedProgram} />}
     </div>
   );
