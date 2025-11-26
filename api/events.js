@@ -55,8 +55,9 @@ export default async function handler(req, res) {
 
       // Save back to Blob
       await put(BLOB_FILE, JSON.stringify(events), {
-        access: 'public',
-        addRandomSuffix: false
+        access: 'public', // Keep public for easy analytics access (no PII stored)
+        addRandomSuffix: false,
+        contentType: 'application/json'
       });
 
       return res.status(200).json({
