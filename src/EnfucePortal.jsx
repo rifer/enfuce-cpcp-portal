@@ -6,6 +6,7 @@ const EnfucePortal = () => {
   const [wizardStep, setWizardStep] = useState(1);
   const [selectedProgram, setSelectedProgram] = useState(null);
   const [abTestVariant, setAbTestVariant] = useState(null);
+  const [pricingVariant, setPricingVariant] = useState(null);
   const [newProgram, setNewProgram] = useState({
     name: '',
     type: '',
@@ -16,105 +17,222 @@ const EnfucePortal = () => {
     dailyLimit: 500,
     monthlyLimit: 5000,
     mccRestrictions: [],
-    countries: []
+    countries: [],
+    estimatedCards: 100
   });
 
-  // A/B Test: Initialize variant assignment and analytics
+  // Pricing calculation function
+  const calculatePricing = (program) => {
+    let total = 0;
+    let breakdown = {};
+
+    // Base setup fee
+    breakdown.setupFee = 500;
+    total += breakdown.setupFee;
+
+    // Card type multiplier
+    const typeMultipliers = {
+      prepaid: 1.0,
+      debit: 1.2,
+      credit: 1.5,
+      revolving: 1.8
+    };
+    const typeMultiplier = typeMultipliers[program.fundingModel] || 1.0;
+
+    // Form factor costs (per card)
+    const formFactorCosts = {
+      physical: 2,
+      virtual: 0.5,
+      tokenized: 1
+    };
+    breakdown.formFactorCost = 0;
+    program.formFactor.forEach(ff => {
+      breakdown.formFactorCost += (formFactorCosts[ff] || 0) * (program.estimatedCards || 100);
+    });
+    total += breakdown.formFactorCost;
+
+    // Monthly platform fee
+    breakdown.monthlyFee = 99 * typeMultiplier;
+    total += breakdown.monthlyFee * 12; // Annual
+
+    // Card scheme transaction fees (estimated annual)
+    const schemeFees = {
+      Visa: 0.10,
+      Mastercard: 0.12
+    };
+    const avgTransactionsPerCard = 50; // Estimated annual transactions per card
+    breakdown.annualTransactionFees =
+      (schemeFees[program.scheme] || 0.10) *
+      (program.estimatedCards || 100) *
+      avgTransactionsPerCard;
+    total += breakdown.annualTransactionFees;
+
+    return {
+      total: Math.round(total),
+      breakdown,
+      monthly: Math.round((total - breakdown.setupFee) / 12),
+      perCard: program.estimatedCards > 0 ? Math.round(total / program.estimatedCards) : 0
+    };
+  };
+
+  // A/B Test: Initialize variant assignment and analytics (2x2 factorial)
   useEffect(() => {
-    // Check if user already has a variant assigned
-    let variant = localStorage.getItem('abtest_cta_variant');
+    // Check if user already has variants assigned
+    let ctaVariant = localStorage.getItem('abtest_cta_variant');
+    let pricingVar = localStorage.getItem('abtest_pricing_variant');
 
-    if (!variant) {
-      // Randomly assign 50/50 split
-      variant = Math.random() < 0.5 ? 'A' : 'B';
-      localStorage.setItem('abtest_cta_variant', variant);
+    if (!ctaVariant || !pricingVar) {
+      // Randomly assign 25% to each of 4 combinations
+      ctaVariant = Math.random() < 0.5 ? 'A' : 'B';
+      pricingVar = Math.random() < 0.5 ? 'live' : 'final';
 
-      // Initialize analytics data
-      const analytics = {
-        variant,
-        assignedAt: new Date().toISOString(),
-        impressions: 0,
-        clicks: 0,
-        conversions: 0
-      };
-      localStorage.setItem('abtest_analytics', JSON.stringify(analytics));
+      localStorage.setItem('abtest_cta_variant', ctaVariant);
+      localStorage.setItem('abtest_pricing_variant', pricingVar);
     }
 
-    setAbTestVariant(variant);
+    setAbTestVariant(ctaVariant);
+    setPricingVariant(pricingVar);
 
     // Track impression (page load)
     trackImpression();
 
     // Make analytics accessible in console for debugging
     window.getABTestAnalytics = () => {
-      const analytics = JSON.parse(localStorage.getItem('abtest_analytics') || '{}');
-      const clickRate = analytics.impressions > 0
-        ? ((analytics.clicks / analytics.impressions) * 100).toFixed(2)
-        : 0;
-      const conversionRate = analytics.clicks > 0
-        ? ((analytics.conversions / analytics.clicks) * 100).toFixed(2)
-        : 0;
+      const events = JSON.parse(localStorage.getItem('conversion_events') || '[]');
+      const summary = {
+        total: events.length,
+        byVariant: {}
+      };
 
-      console.table({
-        'Variant': analytics.variant,
-        'Assigned At': analytics.assignedAt,
-        'Impressions': analytics.impressions,
-        'Clicks': analytics.clicks,
-        'Conversions': analytics.conversions,
-        'Click Rate (%)': clickRate,
-        'Conversion Rate (%)': conversionRate,
-        'Last Click Source': analytics.clickSource || 'N/A'
+      events.forEach(event => {
+        const variantKey = `${event.ctaVariant}${event.pricingVariant}`;
+        if (!summary.byVariant[variantKey]) {
+          summary.byVariant[variantKey] = {
+            impressions: 0,
+            clicks: 0,
+            purchases: 0
+          };
+        }
+        summary.byVariant[variantKey].impressions++;
+        if (event.clickSource) summary.byVariant[variantKey].clicks++;
+        if (event.purchased) summary.byVariant[variantKey].purchases++;
       });
 
-      return analytics;
+      console.log('A/B Test Summary:');
+      console.table(summary.byVariant);
+      return { events, summary };
+    };
+
+    window.downloadCSV = () => {
+      const events = JSON.parse(localStorage.getItem('conversion_events') || '[]');
+      const csv = convertToCSV(events);
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ab-test-data-${new Date().toISOString()}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      console.log('CSV downloaded successfully!');
     };
 
     window.resetABTest = () => {
       localStorage.removeItem('abtest_cta_variant');
-      localStorage.removeItem('abtest_analytics');
+      localStorage.removeItem('abtest_pricing_variant');
+      localStorage.removeItem('conversion_events');
       console.log('A/B test data cleared. Refresh the page to get a new variant assignment.');
     };
 
-    console.log('📊 A/B Test Active - Variant:', variant);
+    const variantName = `${ctaVariant}${pricingVar}`;
+    console.log('📊 A/B Test Active - Variant:', variantName);
+    console.log('  CTA Placement:', ctaVariant === 'A' ? 'Header' : 'Dashboard');
+    console.log('  Pricing Display:', pricingVar === 'live' ? 'Live/Dynamic' : 'Final Summary');
     console.log('💡 Use window.getABTestAnalytics() to view analytics');
+    console.log('💡 Use window.downloadCSV() to download data');
     console.log('💡 Use window.resetABTest() to reset and get reassigned');
   }, []);
 
+  // CSV conversion function
+  const convertToCSV = (events) => {
+    if (events.length === 0) return '';
+
+    const headers = Object.keys(events[0]).join(',');
+    const rows = events.map(event =>
+      Object.values(event).map(val =>
+        typeof val === 'object' ? JSON.stringify(val).replace(/,/g, ';') : val
+      ).join(',')
+    );
+
+    return [headers, ...rows].join('\n');
+  };
+
   // Track page impression
   const trackImpression = () => {
-    const analyticsData = JSON.parse(localStorage.getItem('abtest_analytics') || '{}');
-    analyticsData.impressions = (analyticsData.impressions || 0) + 1;
-    analyticsData.lastImpression = new Date().toISOString();
-    localStorage.setItem('abtest_analytics', JSON.stringify(analyticsData));
+    const sessionId = localStorage.getItem('session_id') || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    localStorage.setItem('session_id', sessionId);
+
+    const events = JSON.parse(localStorage.getItem('conversion_events') || '[]');
+    events.push({
+      timestamp: new Date().toISOString(),
+      sessionId,
+      eventType: 'impression',
+      ctaVariant: abTestVariant,
+      pricingVariant: pricingVariant,
+      clickSource: null,
+      purchased: false,
+      programConfig: null,
+      pricing: null
+    });
+    localStorage.setItem('conversion_events', JSON.stringify(events));
   };
 
   // Track CTA click
   const trackCTAClick = (source) => {
-    const analyticsData = JSON.parse(localStorage.getItem('abtest_analytics') || '{}');
-    analyticsData.clicks = (analyticsData.clicks || 0) + 1;
-    analyticsData.lastClick = new Date().toISOString();
-    analyticsData.clickSource = source;
-    localStorage.setItem('abtest_analytics', JSON.stringify(analyticsData));
+    const sessionId = localStorage.getItem('session_id');
+    const events = JSON.parse(localStorage.getItem('conversion_events') || '[]');
 
-    // Log to console for debugging
+    events.push({
+      timestamp: new Date().toISOString(),
+      sessionId,
+      eventType: 'click',
+      ctaVariant: abTestVariant,
+      pricingVariant: pricingVariant,
+      clickSource: source,
+      purchased: false,
+      programConfig: null,
+      pricing: null
+    });
+    localStorage.setItem('conversion_events', JSON.stringify(events));
+
     console.log('A/B Test Click:', {
-      variant: abTestVariant,
-      source,
-      analytics: analyticsData
+      variant: `${abTestVariant}${pricingVariant}`,
+      source
     });
   };
 
-  // Track conversion (wizard completion)
-  const trackConversion = () => {
-    const analyticsData = JSON.parse(localStorage.getItem('abtest_analytics') || '{}');
-    analyticsData.conversions = (analyticsData.conversions || 0) + 1;
-    analyticsData.lastConversion = new Date().toISOString();
-    localStorage.setItem('abtest_analytics', JSON.stringify(analyticsData));
+  // Track purchase (conversion)
+  const trackPurchase = () => {
+    const sessionId = localStorage.getItem('session_id');
+    const events = JSON.parse(localStorage.getItem('conversion_events') || '[]');
+    const pricing = calculatePricing(newProgram);
 
-    // Log to console for debugging
-    console.log('A/B Test Conversion:', {
-      variant: abTestVariant,
-      analytics: analyticsData
+    events.push({
+      timestamp: new Date().toISOString(),
+      sessionId,
+      eventType: 'purchase',
+      ctaVariant: abTestVariant,
+      pricingVariant: pricingVariant,
+      clickSource: events.find(e => e.sessionId === sessionId && e.eventType === 'click')?.clickSource || 'unknown',
+      purchased: true,
+      programConfig: JSON.stringify(newProgram).replace(/,/g, ';'),
+      pricing: pricing.total
+    });
+    localStorage.setItem('conversion_events', JSON.stringify(events));
+
+    console.log('A/B Test Purchase:', {
+      variant: `${abTestVariant}${pricingVariant}`,
+      pricing: pricing.total,
+      config: newProgram
     });
   };
 
@@ -155,6 +273,64 @@ const EnfucePortal = () => {
       <span className={`px-2 py-0.5 text-xs font-medium rounded border ${colors[status]}`}>
         {status}
       </span>
+    );
+  };
+
+  // Live Pricing Sidebar (for variants with live pricing)
+  const LivePricingSidebar = () => {
+    const pricing = calculatePricing(newProgram);
+
+    return (
+      <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-xl p-5 sticky top-4">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-xl">💰</span>
+          <h3 className="text-white font-semibold">Estimated Pricing</h3>
+        </div>
+
+        <div className="space-y-3 mb-4 pb-4 border-b border-slate-700">
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-400">Setup Fee</span>
+            <span className="text-white">€{pricing.breakdown.setupFee}</span>
+          </div>
+          {pricing.breakdown.formFactorCost > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-400">Card Production</span>
+              <span className="text-white">€{Math.round(pricing.breakdown.formFactorCost)}</span>
+            </div>
+          )}
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-400">Annual Platform Fee</span>
+              <span className="text-white">€{Math.round(pricing.breakdown.monthlyFee * 12)}</span>
+          </div>
+          {pricing.breakdown.annualTransactionFees > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-400">Est. Transaction Fees</span>
+              <span className="text-white">€{Math.round(pricing.breakdown.annualTransactionFees)}</span>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex justify-between items-center">
+            <span className="text-white font-semibold">First Year Total</span>
+            <span className="text-2xl font-bold text-cyan-400">€{pricing.total.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-400">Monthly (avg)</span>
+            <span className="text-slate-300">€{pricing.monthly.toLocaleString()}/mo</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-400">Per Card</span>
+            <span className="text-slate-300">€{pricing.perCard}/card</span>
+          </div>
+        </div>
+
+        <div className="mt-4 pt-4 border-t border-slate-700">
+          <div className="text-xs text-slate-500">
+            Based on {newProgram.estimatedCards} cards
+          </div>
+        </div>
+      </div>
     );
   };
 
@@ -351,8 +527,8 @@ const EnfucePortal = () => {
                 key={scheme}
                 onClick={() => setNewProgram({...newProgram, scheme})}
                 className={`flex-1 py-3 rounded-lg border font-medium transition-all ${
-                  newProgram.scheme === scheme 
-                    ? 'bg-cyan-500/20 border-cyan-500 text-white' 
+                  newProgram.scheme === scheme
+                    ? 'bg-cyan-500/20 border-cyan-500 text-white'
                     : 'bg-slate-800/50 border-slate-700 text-slate-300'
                 }`}
               >
@@ -363,7 +539,7 @@ const EnfucePortal = () => {
         </div>
         <div>
           <label className="block text-sm text-slate-300 mb-2">Currency</label>
-          <select 
+          <select
             value={newProgram.currency}
             onChange={(e) => setNewProgram({...newProgram, currency: e.target.value})}
             className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-cyan-500 outline-none"
@@ -374,6 +550,19 @@ const EnfucePortal = () => {
             <option value="SEK">SEK - Swedish Krona</option>
           </select>
         </div>
+      </div>
+
+      <div>
+        <label className="block text-sm text-slate-300 mb-2">Estimated Number of Cards</label>
+        <input
+          type="number"
+          value={newProgram.estimatedCards}
+          onChange={(e) => setNewProgram({...newProgram, estimatedCards: parseInt(e.target.value) || 0})}
+          placeholder="100"
+          className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-cyan-500 outline-none"
+          min="1"
+        />
+        <div className="text-xs text-slate-500 mt-1">Used for pricing calculation</div>
       </div>
     </div>
   );
@@ -523,114 +712,168 @@ const EnfucePortal = () => {
     </div>
   );
 
-  const WizardStep5 = () => (
-    <div className="space-y-6">
-      <div className="bg-slate-800/50 rounded-xl border border-slate-700 overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-700 bg-slate-800/80">
-          <div className="font-semibold text-white">Program Summary</div>
-        </div>
-        <div className="p-6 space-y-4">
-          {[
-            { label: 'Program Name', value: newProgram.name || 'Executive Travel Card' },
-            { label: 'Type', value: newProgram.type || 'Corporate' },
-            { label: 'Funding Model', value: newProgram.fundingModel || 'Prepaid' },
-            { label: 'Form Factor', value: newProgram.formFactor.join(', ') || 'Physical, Virtual' },
-            { label: 'Scheme', value: newProgram.scheme || 'Visa' },
-            { label: 'Currency', value: newProgram.currency },
-            { label: 'Daily Limit', value: `${newProgram.currency} ${newProgram.dailyLimit.toLocaleString()}` },
-            { label: 'Monthly Limit', value: `${newProgram.currency} ${newProgram.monthlyLimit.toLocaleString()}` },
-            { label: 'MCC Restrictions', value: `${newProgram.mccRestrictions.length} categories allowed` }
-          ].map((item, idx) => (
-            <div key={idx} className="flex justify-between items-center py-2 border-b border-slate-700/50 last:border-0">
-              <span className="text-slate-400">{item.label}</span>
-              <span className="text-white font-medium">{item.value}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+  const WizardStep5 = () => {
+    const pricing = calculatePricing(newProgram);
 
-      <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4">
-        <div className="flex items-start gap-3">
-          <span className="text-emerald-400 text-xl">✓</span>
-          <div>
-            <div className="text-emerald-300 font-medium">Compliance Check Passed</div>
-            <div className="text-sm text-slate-400 mt-1">
-              Program configuration meets all regulatory requirements. Ready for launch.
+    return (
+      <div className="space-y-6">
+        <div className="bg-slate-800/50 rounded-xl border border-slate-700 overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-700 bg-slate-800/80">
+            <div className="font-semibold text-white">Program Summary</div>
+          </div>
+          <div className="p-6 space-y-4">
+            {[
+              { label: 'Program Name', value: newProgram.name || 'Executive Travel Card' },
+              { label: 'Type', value: newProgram.type || 'Corporate' },
+              { label: 'Funding Model', value: newProgram.fundingModel || 'Prepaid' },
+              { label: 'Form Factor', value: newProgram.formFactor.join(', ') || 'Physical, Virtual' },
+              { label: 'Scheme', value: newProgram.scheme || 'Visa' },
+              { label: 'Currency', value: newProgram.currency },
+              { label: 'Estimated Cards', value: newProgram.estimatedCards.toLocaleString() },
+              { label: 'Daily Limit', value: `${newProgram.currency} ${newProgram.dailyLimit.toLocaleString()}` },
+              { label: 'Monthly Limit', value: `${newProgram.currency} ${newProgram.monthlyLimit.toLocaleString()}` },
+              { label: 'MCC Restrictions', value: `${newProgram.mccRestrictions.length} categories allowed` }
+            ].map((item, idx) => (
+              <div key={idx} className="flex justify-between items-center py-2 border-b border-slate-700/50 last:border-0">
+                <span className="text-slate-400">{item.label}</span>
+                <span className="text-white font-medium">{item.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Pricing Summary (shown for all variants on final step) */}
+        <div className="bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/30 rounded-xl p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-2xl">💰</span>
+            <h3 className="text-xl font-bold text-white">Pricing Summary</h3>
+          </div>
+
+          <div className="space-y-3 mb-4">
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-300">Setup Fee</span>
+              <span className="text-white">€{pricing.breakdown.setupFee.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-300">Card Production ({newProgram.estimatedCards} cards)</span>
+              <span className="text-white">€{Math.round(pricing.breakdown.formFactorCost).toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-300">Annual Platform Fee</span>
+              <span className="text-white">€{Math.round(pricing.breakdown.monthlyFee * 12).toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-300">Est. Annual Transaction Fees</span>
+              <span className="text-white">€{Math.round(pricing.breakdown.annualTransactionFees).toLocaleString()}</span>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-cyan-500/30">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-white font-semibold text-lg">First Year Total</span>
+              <span className="text-3xl font-bold text-cyan-400">€{pricing.total.toLocaleString()}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-4 mt-3">
+              <div className="bg-slate-800/50 rounded-lg p-3">
+                <div className="text-xs text-slate-400">Monthly Average</div>
+                <div className="text-lg font-semibold text-white">€{pricing.monthly.toLocaleString()}</div>
+              </div>
+              <div className="bg-slate-800/50 rounded-lg p-3">
+                <div className="text-xs text-slate-400">Cost Per Card</div>
+                <div className="text-lg font-semibold text-white">€{pricing.perCard}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <span className="text-emerald-400 text-xl">✓</span>
+            <div>
+              <div className="text-emerald-300 font-medium">Compliance Check Passed</div>
+              <div className="text-sm text-slate-400 mt-1">
+                Program configuration meets all regulatory requirements. Ready to proceed.
+              </div>
             </div>
           </div>
         </div>
       </div>
+    );
+  };
 
-      <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4">
-        <div className="flex items-start gap-3">
-          <span className="text-amber-400 text-xl">⚡</span>
-          <div>
-            <div className="text-amber-300 font-medium">API Integration Ready</div>
-            <div className="text-sm text-slate-400 mt-1">
-              Program ID will be: <code className="bg-slate-800 px-2 py-0.5 rounded text-cyan-300">prg_un_travel_2024</code>
+  const CreateProgramWizard = () => {
+    const showLivePricing = pricingVariant === 'live' && wizardStep > 1 && wizardStep < 5;
+
+    return (
+      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className={`bg-slate-900 rounded-2xl border border-slate-700 w-full ${showLivePricing ? 'max-w-6xl' : 'max-w-3xl'} max-h-[90vh] overflow-hidden flex flex-col`}>
+          <div className="p-6 border-b border-slate-700 flex justify-between items-center">
+            <div>
+              <h2 className="text-xl font-bold text-white">Create Card Program</h2>
+              <p className="text-slate-400 text-sm mt-1">Configure your new card program</p>
             </div>
+            <button
+              onClick={() => {setShowCreateWizard(false); setWizardStep(1);}}
+              className="text-slate-400 hover:text-white text-2xl"
+            >
+              ×
+            </button>
+          </div>
+
+          <div className="p-6 overflow-y-auto flex-1 flex gap-6">
+            <div className={`${showLivePricing ? 'flex-1' : 'w-full'}`}>
+              <WizardStepIndicator />
+              {wizardStep === 1 && <WizardStep1 />}
+              {wizardStep === 2 && <WizardStep2 />}
+              {wizardStep === 3 && <WizardStep3 />}
+              {wizardStep === 4 && <WizardStep4 />}
+              {wizardStep === 5 && <WizardStep5 />}
+            </div>
+
+            {/* Live Pricing Sidebar (for live pricing variants only) */}
+            {showLivePricing && (
+              <div className="w-80">
+                <LivePricingSidebar />
+              </div>
+            )}
+          </div>
+
+          <div className="p-6 border-t border-slate-700 flex justify-between">
+            <button
+              onClick={() => setWizardStep(Math.max(1, wizardStep - 1))}
+              className={`px-6 py-2.5 rounded-lg font-medium transition-all ${
+                wizardStep === 1
+                  ? 'text-slate-600 cursor-not-allowed'
+                  : 'text-slate-300 hover:bg-slate-800'
+              }`}
+              disabled={wizardStep === 1}
+            >
+              Back
+            </button>
+            <button
+              onClick={() => {
+                if (wizardStep < 5) {
+                  setWizardStep(wizardStep + 1);
+                } else {
+                  // Track purchase (conversion)
+                  trackPurchase();
+                  setShowCreateWizard(false);
+                  setWizardStep(1);
+                }
+              }}
+              className={`px-6 py-2.5 rounded-lg font-medium transition-all ${
+                wizardStep === 5
+                  ? 'bg-gradient-to-r from-emerald-500 to-green-500 text-white hover:from-emerald-400 hover:to-green-400'
+                  : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:from-cyan-400 hover:to-blue-400'
+              }`}
+            >
+              {wizardStep === 5 ? '🛒 Purchase Program' : 'Continue'}
+            </button>
           </div>
         </div>
       </div>
-    </div>
-  );
-
-  const CreateProgramWizard = () => (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-900 rounded-2xl border border-slate-700 w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="p-6 border-b border-slate-700 flex justify-between items-center">
-          <div>
-            <h2 className="text-xl font-bold text-white">Create Card Program</h2>
-            <p className="text-slate-400 text-sm mt-1">Configure your new card program</p>
-          </div>
-          <button 
-            onClick={() => {setShowCreateWizard(false); setWizardStep(1);}}
-            className="text-slate-400 hover:text-white text-2xl"
-          >
-            ×
-          </button>
-        </div>
-        
-        <div className="p-6 overflow-y-auto flex-1">
-          <WizardStepIndicator />
-          {wizardStep === 1 && <WizardStep1 />}
-          {wizardStep === 2 && <WizardStep2 />}
-          {wizardStep === 3 && <WizardStep3 />}
-          {wizardStep === 4 && <WizardStep4 />}
-          {wizardStep === 5 && <WizardStep5 />}
-        </div>
-
-        <div className="p-6 border-t border-slate-700 flex justify-between">
-          <button
-            onClick={() => setWizardStep(Math.max(1, wizardStep - 1))}
-            className={`px-6 py-2.5 rounded-lg font-medium transition-all ${
-              wizardStep === 1 
-                ? 'text-slate-600 cursor-not-allowed' 
-                : 'text-slate-300 hover:bg-slate-800'
-            }`}
-            disabled={wizardStep === 1}
-          >
-            Back
-          </button>
-          <button
-            onClick={() => {
-              if (wizardStep < 5) {
-                setWizardStep(wizardStep + 1);
-              } else {
-                // Track conversion when wizard is completed
-                trackConversion();
-                setShowCreateWizard(false);
-                setWizardStep(1);
-              }
-            }}
-            className="px-6 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg font-medium hover:from-cyan-400 hover:to-blue-400 transition-all"
-          >
-            {wizardStep === 5 ? 'Launch Program' : 'Continue'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+    );
+  };
 
   const ProgramDetail = ({ program }) => (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
