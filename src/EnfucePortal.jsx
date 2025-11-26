@@ -18,7 +18,10 @@ const EnfucePortal = () => {
     monthlyLimit: 5000,
     mccRestrictions: [],
     countries: [],
-    estimatedCards: 100
+    estimatedCards: 100,
+    cardDesign: 'corporate',
+    cardColor: '#2C3E50',
+    cardBackgroundImage: null
   });
 
   // Stable update handler to prevent component recreation
@@ -724,72 +727,162 @@ const EnfucePortal = () => {
     </div>
   );
 
-  const WizardStep4 = () => (
-    <div className="space-y-6">
-      <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700">
-        <div className="text-sm text-slate-400 mb-4">Card Preview</div>
-        <div className="relative w-80 h-48 mx-auto">
-          <div className="absolute inset-0 bg-gradient-to-br from-cyan-500 via-blue-600 to-purple-700 rounded-2xl shadow-2xl transform rotate-3" />
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 rounded-2xl shadow-xl border border-slate-600/50 p-6 flex flex-col justify-between">
-            <div className="flex justify-between items-start">
-              <div className="w-12 h-10 rounded bg-gradient-to-br from-yellow-400 to-yellow-600" />
-              <div className="text-right">
-                <div className="text-white font-bold text-lg">ENFUCE</div>
-                <div className="text-slate-400 text-xs">{newProgram.scheme || 'VISA'}</div>
-              </div>
-            </div>
-            <div>
-              <div className="text-slate-300 font-mono tracking-widest text-lg mb-2">
-                •••• •••• •••• 4242
-              </div>
-              <div className="flex justify-between items-end">
-                <div>
-                  <div className="text-slate-500 text-xs">CARDHOLDER</div>
-                  <div className="text-white text-sm">JOHN DOE</div>
-                </div>
+  const WizardStep4 = () => {
+    const getCardBackground = () => {
+      if (newProgram.cardBackgroundImage) {
+        return `url(${newProgram.cardBackgroundImage})`;
+      }
+
+      const designs = {
+        corporate: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+        premium: 'linear-gradient(135deg, #d97706 0%, #ca8a04 100%)',
+        ocean: 'linear-gradient(135deg, #06b6d4 0%, #1d4ed8 100%)',
+        sunset: 'linear-gradient(135deg, #f97316 0%, #ec4899 100%)',
+        custom: newProgram.cardColor
+      };
+
+      return designs[newProgram.cardDesign] || designs.corporate;
+    };
+
+    const handleImageUpload = (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          updateProgram({ cardBackgroundImage: reader.result, cardDesign: 'custom' });
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+
+    return (
+      <div className="space-y-6">
+        <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700">
+          <div className="text-sm text-slate-400 mb-4">Card Preview</div>
+          <div className="relative w-80 h-48 mx-auto">
+            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500 via-blue-600 to-purple-700 rounded-2xl shadow-2xl transform rotate-3" />
+            <div
+              className="absolute inset-0 rounded-2xl shadow-xl border border-slate-600/50 p-6 flex flex-col justify-between"
+              style={{
+                background: getCardBackground(),
+                backgroundSize: 'cover',
+                backgroundPosition: 'center'
+              }}
+            >
+              <div className="flex justify-between items-start">
+                <div className="w-12 h-10 rounded bg-gradient-to-br from-yellow-400 to-yellow-600" />
                 <div className="text-right">
-                  <div className="text-slate-500 text-xs">VALID THRU</div>
-                  <div className="text-white text-sm">12/28</div>
+                  <div className="text-white font-bold text-lg drop-shadow-lg">ENFUCE</div>
+                  <div className="text-slate-200 text-xs drop-shadow">{newProgram.scheme || 'VISA'}</div>
+                </div>
+              </div>
+              <div>
+                <div className="text-slate-100 font-mono tracking-widest text-lg mb-2 drop-shadow-lg">
+                  •••• •••• •••• 4242
+                </div>
+                <div className="flex justify-between items-end">
+                  <div>
+                    <div className="text-slate-300 text-xs drop-shadow">CARDHOLDER</div>
+                    <div className="text-white text-sm drop-shadow-lg">JOHN DOE</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-slate-300 text-xs drop-shadow">VALID THRU</div>
+                    <div className="text-white text-sm drop-shadow-lg">12/28</div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <div>
-        <label className="block text-sm text-slate-300 mb-2">Card Design Template</label>
-        <div className="grid grid-cols-4 gap-3">
-          {[
-            { id: 'corporate', gradient: 'from-slate-700 to-slate-900' },
-            { id: 'premium', gradient: 'from-amber-600 to-yellow-800' },
-            { id: 'ocean', gradient: 'from-cyan-500 to-blue-700' },
-            { id: 'sunset', gradient: 'from-orange-500 to-pink-600' }
-          ].map(design => (
-            <button
-              key={design.id}
-              className={`h-20 rounded-xl bg-gradient-to-br ${design.gradient} border-2 transition-all ${
-                design.id === 'corporate' ? 'border-cyan-500 ring-2 ring-cyan-500/30' : 'border-transparent hover:border-slate-500'
-              }`}
-            />
-          ))}
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">📱</span>
-          <div>
-            <div className="text-white font-medium">Digital Wallet Provisioning</div>
-            <div className="text-sm text-slate-400">Apple Pay, Google Pay, Samsung Pay</div>
+        <div>
+          <label className="block text-sm text-slate-300 mb-2">Card Design Template</label>
+          <div className="grid grid-cols-4 gap-3">
+            {[
+              { id: 'corporate', gradient: 'from-slate-700 to-slate-900', label: 'Corporate' },
+              { id: 'premium', gradient: 'from-amber-600 to-yellow-800', label: 'Premium' },
+              { id: 'ocean', gradient: 'from-cyan-500 to-blue-700', label: 'Ocean' },
+              { id: 'sunset', gradient: 'from-orange-500 to-pink-600', label: 'Sunset' }
+            ].map(design => (
+              <button
+                key={design.id}
+                onClick={() => updateProgram({ cardDesign: design.id, cardBackgroundImage: null })}
+                className={`h-20 rounded-xl bg-gradient-to-br ${design.gradient} border-2 transition-all relative group ${
+                  newProgram.cardDesign === design.id ? 'border-cyan-500 ring-2 ring-cyan-500/30' : 'border-transparent hover:border-slate-500'
+                }`}
+              >
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl">
+                  <span className="text-white text-xs font-medium">{design.label}</span>
+                </div>
+              </button>
+            ))}
           </div>
         </div>
-        <div className="w-12 h-6 bg-cyan-500 rounded-full relative cursor-pointer">
-          <div className="absolute right-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow" />
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm text-slate-300 mb-2">Custom Color</label>
+            <div className="flex gap-2">
+              <input
+                type="color"
+                value={newProgram.cardColor}
+                onChange={(e) => updateProgram({ cardColor: e.target.value, cardDesign: 'custom', cardBackgroundImage: null })}
+                className="w-16 h-10 rounded-lg border border-slate-600 bg-slate-800 cursor-pointer"
+              />
+              <input
+                type="text"
+                value={newProgram.cardColor}
+                onChange={(e) => updateProgram({ cardColor: e.target.value, cardDesign: 'custom', cardBackgroundImage: null })}
+                className="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white text-sm focus:border-cyan-500 outline-none"
+                placeholder="#2C3E50"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm text-slate-300 mb-2">Background Image</label>
+            <div className="relative">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+                id="cardImageUpload"
+              />
+              <label
+                htmlFor="cardImageUpload"
+                className="flex items-center justify-center gap-2 w-full h-10 bg-slate-800 border border-slate-600 rounded-lg px-4 text-slate-300 hover:bg-slate-700 cursor-pointer transition-colors"
+              >
+                <span className="text-lg">📸</span>
+                <span className="text-sm">{newProgram.cardBackgroundImage ? 'Change Image' : 'Upload Image'}</span>
+              </label>
+            </div>
+            {newProgram.cardBackgroundImage && (
+              <button
+                onClick={() => updateProgram({ cardBackgroundImage: null })}
+                className="text-xs text-red-400 hover:text-red-300 mt-1"
+              >
+                Remove image
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg border border-slate-700">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">📱</span>
+            <div>
+              <div className="text-white font-medium">Digital Wallet Provisioning</div>
+              <div className="text-sm text-slate-400">Apple Pay, Google Pay, Samsung Pay</div>
+            </div>
+          </div>
+          <div className="w-12 h-6 bg-cyan-500 rounded-full relative cursor-pointer">
+            <div className="absolute right-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow" />
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const WizardStep5 = () => {
     const pricing = calculatePricing(newProgram);
