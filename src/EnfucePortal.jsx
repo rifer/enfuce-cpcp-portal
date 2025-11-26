@@ -881,12 +881,12 @@ const EnfucePortal = () => {
     }, [wizardStep]); // Only scroll to top when step changes
 
     return (
-      <div className="fixed inset-0 bg-[#2C3E50]/95 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={(e) => e.target === e.currentTarget && setShowCreateWizard(false)}>
-        <div className={`bg-[#1a2332] rounded-2xl border-2 border-[#7DD3C0]/30 w-full ${showLivePricing ? 'max-w-6xl' : 'max-w-3xl'} max-h-[90vh] overflow-hidden flex flex-col shadow-2xl`} onClick={(e) => e.stopPropagation()}>
-          <div className="p-6 border-b border-[#7DD3C0]/20 flex justify-between items-center bg-[#2C3E50]/50">
+      <div className="fixed inset-0 bg-[#2C3E50]/95 backdrop-blur-sm flex items-center justify-center z-50 p-0 sm:p-4" onClick={(e) => e.target === e.currentTarget && setShowCreateWizard(false)}>
+        <div className={`bg-[#1a2332] sm:rounded-2xl border-0 sm:border-2 border-[#7DD3C0]/30 w-full h-full sm:h-auto ${showLivePricing ? 'sm:max-w-6xl' : 'sm:max-w-3xl'} sm:max-h-[90vh] overflow-hidden flex flex-col shadow-2xl`} onClick={(e) => e.stopPropagation()}>
+          <div className="p-4 sm:p-6 border-b border-[#7DD3C0]/20 flex justify-between items-center bg-[#2C3E50]/50">
             <div>
-              <h2 className="text-2xl font-bold text-white">Create Card Program</h2>
-              <p className="text-[#7DD3C0] text-sm mt-1">Configure your new card program</p>
+              <h2 className="text-xl sm:text-2xl font-bold text-white">Create Card Program</h2>
+              <p className="text-[#7DD3C0] text-xs sm:text-sm mt-1 hidden sm:block">Configure your new card program</p>
             </div>
             <button
               onClick={() => {setShowCreateWizard(false); setWizardStep(1);}}
@@ -896,8 +896,8 @@ const EnfucePortal = () => {
             </button>
           </div>
 
-          <div ref={scrollContainerRef} className="p-6 overflow-y-auto flex-1 flex gap-6">
-            <div className={`${showLivePricing ? 'flex-1' : 'w-full'}`}>
+          <div ref={scrollContainerRef} className="p-4 sm:p-6 overflow-y-auto flex-1 flex flex-col lg:flex-row gap-4 sm:gap-6">
+            <div className={`${showLivePricing ? 'lg:flex-1' : 'w-full'}`}>
               <WizardStepIndicator />
               {wizardStep === 1 && <WizardStep1 />}
               {wizardStep === 2 && <WizardStep2 />}
@@ -908,16 +908,16 @@ const EnfucePortal = () => {
 
             {/* Live Pricing Sidebar (for live pricing variants only) */}
             {showLivePricing && (
-              <div className="w-80">
+              <div className="w-full lg:w-80">
                 <LivePricingSidebar />
               </div>
             )}
           </div>
 
-          <div className="p-6 border-t border-[#7DD3C0]/20 flex justify-between bg-[#2C3E50]/30">
+          <div className="p-4 sm:p-6 border-t border-[#7DD3C0]/20 flex justify-between bg-[#2C3E50]/30">
             <button
               onClick={() => setWizardStep(Math.max(1, wizardStep - 1))}
-              className={`px-6 py-2.5 rounded-lg font-semibold transition-all ${
+              className={`px-4 sm:px-6 py-2.5 rounded-lg font-semibold transition-all text-sm sm:text-base ${
                 wizardStep === 1
                   ? 'text-slate-600 cursor-not-allowed'
                   : 'text-[#7DD3C0] hover:bg-[#2C3E50] border border-[#7DD3C0]/30'
@@ -937,13 +937,13 @@ const EnfucePortal = () => {
                   setWizardStep(1);
                 }
               }}
-              className={`px-8 py-2.5 rounded-lg font-bold transition-all ${
+              className={`px-6 sm:px-8 py-2.5 rounded-lg font-bold transition-all text-sm sm:text-base ${
                 wizardStep === 5
                   ? 'bg-[#7DD3C0] text-[#2C3E50] hover:bg-[#6BC3B0] shadow-lg'
                   : 'bg-[#FFD93D] text-[#2C3E50] hover:bg-[#FFC700] shadow-lg'
               }`}
             >
-              {wizardStep === 5 ? '🛒 Purchase Program' : 'Continue'}
+              {wizardStep === 5 ? '🛒 Purchase' : 'Continue'}
             </button>
           </div>
         </div>
@@ -952,9 +952,9 @@ const EnfucePortal = () => {
   };
 
   const ProgramDetail = ({ program }) => (
-    <div className="fixed inset-0 bg-[#2C3E50]/95 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-[#1a2332] rounded-2xl border-2 border-[#7DD3C0]/30 w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl">
-        <div className="p-6 border-b border-[#7DD3C0]/20 flex justify-between items-center bg-[#2C3E50]/50">
+    <div className="fixed inset-0 bg-[#2C3E50]/95 backdrop-blur-sm flex items-center justify-center z-50 p-0 sm:p-4">
+      <div className="bg-[#1a2332] sm:rounded-2xl border-0 sm:border-2 border-[#7DD3C0]/30 w-full h-full sm:h-auto sm:max-w-4xl sm:max-h-[90vh] overflow-hidden shadow-2xl">
+        <div className="p-4 sm:p-6 border-b border-[#7DD3C0]/20 flex justify-between items-center bg-[#2C3E50]/50">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#7DD3C0] to-[#7DD3C0]/60 flex items-center justify-center text-3xl shadow-lg">
               💳
@@ -975,42 +975,42 @@ const EnfucePortal = () => {
           </button>
         </div>
 
-        <div className="p-6 overflow-y-auto">
-          <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="p-4 sm:p-6 overflow-y-auto">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
             <StatsCard icon="💳" label="Active Cards" value={program.cards.toLocaleString()} color="text-[#7DD3C0]" />
             <StatsCard icon="💰" label="Total Spend" value={program.spend} color="text-[#FFD93D]" />
             <StatsCard icon="📊" label="Avg Transaction" value="€47.20" color="text-[#7DD3C0]" />
             <StatsCard icon="🔒" label="Declined" value="2.1%" color="text-red-400" />
           </div>
 
-          <div className="grid grid-cols-2 gap-6">
-            <div className="bg-[#2C3E50]/50 rounded-xl border border-[#7DD3C0]/20 p-5">
-              <h3 className="text-white font-bold mb-4 flex items-center gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+            <div className="bg-[#2C3E50]/50 rounded-xl border border-[#7DD3C0]/20 p-4 sm:p-5">
+              <h3 className="text-white font-bold mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
                 <span className="text-[#7DD3C0]">⚙️</span> Spend Controls
               </h3>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
+              <div className="space-y-2 sm:space-y-3">
+                <div className="flex justify-between items-center text-sm sm:text-base">
                   <span className="text-slate-400">Daily Limit</span>
                   <span className="text-[#7DD3C0] font-semibold">€500</span>
                 </div>
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center text-sm sm:text-base">
                   <span className="text-slate-400">Monthly Limit</span>
                   <span className="text-[#7DD3C0] font-semibold">€5,000</span>
                 </div>
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center text-sm sm:text-base">
                   <span className="text-slate-400">Per Transaction</span>
                   <span className="text-[#7DD3C0] font-semibold">€250</span>
                 </div>
               </div>
             </div>
 
-            <div className="bg-[#2C3E50]/50 rounded-xl border border-[#7DD3C0]/20 p-5">
-              <h3 className="text-white font-bold mb-4 flex items-center gap-2">
+            <div className="bg-[#2C3E50]/50 rounded-xl border border-[#7DD3C0]/20 p-4 sm:p-5">
+              <h3 className="text-white font-bold mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
                 <span className="text-[#7DD3C0]">🏷️</span> Allowed Categories
               </h3>
               <div className="flex flex-wrap gap-2">
                 {['🍽️ Restaurants', '✈️ Airlines', '🏨 Hotels', '🚕 Transport'].map(cat => (
-                  <span key={cat} className="px-3 py-1 bg-[#7DD3C0]/10 border border-[#7DD3C0]/30 rounded-lg text-sm text-[#7DD3C0] font-medium">
+                  <span key={cat} className="px-2 sm:px-3 py-1 bg-[#7DD3C0]/10 border border-[#7DD3C0]/30 rounded-lg text-xs sm:text-sm text-[#7DD3C0] font-medium">
                     {cat}
                   </span>
                 ))}
@@ -1018,14 +1018,14 @@ const EnfucePortal = () => {
             </div>
           </div>
 
-          <div className="mt-6 flex gap-3">
-            <button className="flex-1 py-3 bg-[#FFD93D] text-[#2C3E50] rounded-lg font-bold hover:bg-[#FFC700] transition-all shadow-md">
+          <div className="mt-4 sm:mt-6 flex flex-col sm:flex-row gap-2 sm:gap-3">
+            <button className="flex-1 py-3 sm:py-3 bg-[#FFD93D] text-[#2C3E50] rounded-lg font-bold hover:bg-[#FFC700] transition-all shadow-md text-sm sm:text-base">
               Edit Configuration
             </button>
-            <button className="flex-1 py-3 bg-[#2C3E50] text-[#7DD3C0] rounded-lg font-semibold hover:bg-[#2C3E50]/80 transition-all border border-[#7DD3C0]/30">
+            <button className="flex-1 py-3 sm:py-3 bg-[#2C3E50] text-[#7DD3C0] rounded-lg font-semibold hover:bg-[#2C3E50]/80 transition-all border border-[#7DD3C0]/30 text-sm sm:text-base">
               Issue New Card
             </button>
-            <button className="flex-1 py-3 bg-[#2C3E50] text-[#7DD3C0] rounded-lg font-semibold hover:bg-[#2C3E50]/80 transition-all border border-[#7DD3C0]/30">
+            <button className="flex-1 py-3 sm:py-3 bg-[#2C3E50] text-[#7DD3C0] rounded-lg font-semibold hover:bg-[#2C3E50]/80 transition-all border border-[#7DD3C0]/30 text-sm sm:text-base">
               View Transactions
             </button>
           </div>
@@ -1035,17 +1035,17 @@ const EnfucePortal = () => {
   );
 
   const Dashboard = () => (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-          <p className="text-slate-400 mt-1">Overview of your card programs</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Dashboard</h1>
+          <p className="text-slate-400 mt-1 text-sm sm:text-base">Overview of your card programs</p>
         </div>
         {/* A/B Test: Show CTA in dashboard only for Variant B (control) */}
         {abTestVariant === 'B' && (
           <button
             onClick={() => handleOpenWizard('dashboard')}
-            className="px-5 py-2.5 bg-[#FFD93D] text-[#2C3E50] rounded-lg font-semibold hover:bg-[#FFC700] transition-all flex items-center gap-2 shadow-lg"
+            className="px-4 sm:px-5 py-2.5 bg-[#FFD93D] text-[#2C3E50] rounded-lg font-semibold hover:bg-[#FFC700] transition-all flex items-center gap-2 shadow-lg text-sm sm:text-base w-full sm:w-auto justify-center"
           >
             <span>+</span> New Program
           </button>
@@ -1082,28 +1082,40 @@ const EnfucePortal = () => {
             <div
               key={program.id}
               onClick={() => setSelectedProgram(program)}
-              className="p-5 flex items-center justify-between hover:bg-[#2C3E50]/50 cursor-pointer transition-all group"
+              className="p-4 sm:p-5 hover:bg-[#2C3E50]/50 cursor-pointer transition-all group"
             >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-[#7DD3C0]/20 to-[#7DD3C0]/10 flex items-center justify-center text-2xl border-2 border-[#7DD3C0]/30 group-hover:border-[#FFD93D]/50 transition-colors">
-                  💳
+              <div className="flex items-start sm:items-center justify-between gap-3">
+                <div className="flex items-start sm:items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-gradient-to-br from-[#7DD3C0]/20 to-[#7DD3C0]/10 flex items-center justify-center text-xl sm:text-2xl border-2 border-[#7DD3C0]/30 group-hover:border-[#FFD93D]/50 transition-colors flex-shrink-0">
+                    💳
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-white font-semibold group-hover:text-[#7DD3C0] transition-colors text-sm sm:text-base truncate">{program.name}</div>
+                    <div className="text-slate-400 text-xs sm:text-sm">{program.type} • {program.scheme}</div>
+                    <div className="flex items-center gap-3 mt-2 sm:hidden">
+                      <div className="text-xs">
+                        <span className="text-white font-semibold">{program.cards.toLocaleString()}</span>
+                        <span className="text-slate-500 ml-1">Cards</span>
+                      </div>
+                      <div className="text-xs">
+                        <span className="text-white font-semibold">{program.spend}</span>
+                        <span className="text-slate-500 ml-1">Vol</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <div className="text-white font-semibold group-hover:text-[#7DD3C0] transition-colors">{program.name}</div>
-                  <div className="text-slate-400 text-sm">{program.type} • {program.scheme}</div>
+                <div className="flex items-center gap-4 sm:gap-8 flex-shrink-0">
+                  <div className="text-right hidden sm:block">
+                    <div className="text-white font-semibold">{program.cards.toLocaleString()}</div>
+                    <div className="text-slate-500 text-xs">Cards</div>
+                  </div>
+                  <div className="text-right hidden sm:block">
+                    <div className="text-white font-semibold">{program.spend}</div>
+                    <div className="text-slate-500 text-xs">Volume</div>
+                  </div>
+                  <StatusBadge status={program.status} />
+                  <span className="text-[#7DD3C0] group-hover:text-[#FFD93D] transition-colors hidden sm:inline">→</span>
                 </div>
-              </div>
-              <div className="flex items-center gap-8">
-                <div className="text-right">
-                  <div className="text-white font-semibold">{program.cards.toLocaleString()}</div>
-                  <div className="text-slate-500 text-xs">Cards</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-white font-semibold">{program.spend}</div>
-                  <div className="text-slate-500 text-xs">Volume</div>
-                </div>
-                <StatusBadge status={program.status} />
-                <span className="text-[#7DD3C0] group-hover:text-[#FFD93D] transition-colors">→</span>
               </div>
             </div>
           ))}
@@ -1363,36 +1375,36 @@ const EnfucePortal = () => {
     <div className="min-h-screen bg-[#2C3E50] flex flex-col lg:flex-row" style={{fontFamily: "'Inter', system-ui, sans-serif"}}>
       <SideNav />
       <div className="flex-1 overflow-auto">
-        <header className="sticky top-0 bg-[#2C3E50]/95 backdrop-blur-xl border-b border-[#7DD3C0]/20 px-4 lg:px-8 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 z-10">
-          <div className="flex items-center gap-4">
-            <div className="relative">
+        <header className="sticky top-0 bg-[#2C3E50]/95 backdrop-blur-xl border-b border-[#7DD3C0]/20 px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 sm:gap-4 z-10">
+          <div className="flex items-center gap-2 sm:gap-4 flex-1">
+            <div className="relative flex-1 sm:flex-initial">
               <input
                 type="text"
-                placeholder="Search programs, cards, transactions..."
-                className="w-80 bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-2 pl-10 text-sm text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none"
+                placeholder="Search..."
+                className="w-full sm:w-60 lg:w-80 bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-2 pl-10 text-sm text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none"
               />
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 justify-between sm:justify-end">
             {/* A/B Test: Show CTA in header for Variant A */}
             {abTestVariant === 'A' && (
               <button
                 onClick={() => handleOpenWizard('header')}
-                className="px-5 py-2.5 bg-[#FFD93D] text-[#2C3E50] rounded-lg font-semibold hover:bg-[#FFC700] transition-all flex items-center gap-2 shadow-lg"
+                className="px-4 sm:px-5 py-2.5 bg-[#FFD93D] text-[#2C3E50] rounded-lg font-semibold hover:bg-[#FFC700] transition-all flex items-center gap-2 shadow-lg text-sm sm:text-base"
               >
-                <span>+</span> New Program
+                <span>+</span> <span className="hidden sm:inline">New Program</span><span className="sm:hidden">New</span>
               </button>
             )}
-            <button className="p-2 text-slate-400 hover:text-white relative">
+            <button className="p-2 text-slate-400 hover:text-white relative flex-shrink-0">
               🔔
               <span className="absolute top-1 right-1 w-2 h-2 bg-cyan-500 rounded-full" />
             </button>
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-white font-medium">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-white font-medium text-sm">
                 UN
               </div>
-              <div className="text-sm">
+              <div className="text-xs sm:text-sm hidden sm:block">
                 <div className="text-white font-medium">Maria Chen</div>
                 <div className="text-slate-500 text-xs">Program Administrator</div>
               </div>
@@ -1400,7 +1412,7 @@ const EnfucePortal = () => {
           </div>
         </header>
         
-        <main className="p-8">
+        <main className="p-4 sm:p-6 lg:p-8">
           {activeSection === 'dashboard' && <Dashboard />}
           {activeSection === 'programs' && <Dashboard />}
           {activeSection === 'analytics' && <AnalyticsSection />}
