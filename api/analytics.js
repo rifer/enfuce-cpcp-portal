@@ -1,7 +1,7 @@
 // API endpoint to retrieve A/B test analytics
 // This uses Vercel Blob for persistent storage
 
-import { head } from '@vercel/blob';
+import { list } from '@vercel/blob';
 
 const BLOB_FILE = 'abtest-events.json';
 
@@ -26,13 +26,35 @@ export default async function handler(req, res) {
       // Read events from Blob
       let events = [];
       try {
-        const blob = await head(BLOB_FILE);
-        if (blob) {
-          const response = await fetch(blob.url);
-          events = await response.json();
+        // List all blobs with the prefix
+        const { blobs } = await list({ prefix: 'abtest-events' });
+
+        if (blobs && blobs.length > 0) {
+          // Find the exact file (it might have a suffix)
+          const blob = blobs.find(b => b.pathname.startsWith('abtest-events'));
+
+          if (blob && blob.url) {
+            console.log('Analytics - Found blob at:', blob.url);
+            const response = await fetch(blob.url);
+
+            if (response.ok) {
+              const text = await response.text();
+              if (text && text.trim()) {
+                try {
+                  events = JSON.parse(text);
+                  console.log(`Analytics - Successfully loaded ${events.length} events`);
+                } catch (parseError) {
+                  console.error('Analytics - Error parsing events:', parseError);
+                  events = [];
+                }
+              }
+            }
+          }
+        } else {
+          console.log('Analytics - No blob found yet');
         }
       } catch (error) {
-        // File doesn't exist yet
+        console.error('Analytics - Error reading blob:', error);
         events = [];
       }
 
@@ -64,6 +86,40 @@ export default async function handler(req, res) {
       const totalClicks = events.filter(e => e.eventType === 'click').length;
       const totalPurchases = events.filter(e => e.eventType === 'purchase').length;
 
+      // Calculate chat wizard analytics
+      const chatWizardStarted = events.filter(e => e.event_action === 'chat_wizard_started').length;
+      const chatWizardCompleted = events.filter(e => e.event_action === 'chat_wizard_completed').length;
+      const chatWizardAbandoned = events.filter(e => e.event_action === 'chat_wizard_abandoned').length;
+      const chatWizardStepEvents = events.filter(e => e.event_action === 'chat_wizard_step_completed');
+
+      // Calculate traditional vs chat wizard distribution
+      // This would need to track wizard variant assignments - for now using placeholder
+      const traditionalCount = events.filter(e => e.wizardVariant === 'traditional').length;
+      const chatCount = events.filter(e => e.wizardVariant === 'chat').length;
+      const totalWizard = traditionalCount + chatCount;
+
+      const chatWizardAnalytics = {
+        traditionalCount,
+        chatCount,
+        traditionalPercent: totalWizard > 0 ? Math.round((traditionalCount / totalWizard) * 100) : 50,
+        chatPercent: totalWizard > 0 ? Math.round((chatCount / totalWizard) * 100) : 50,
+        started: chatWizardStarted,
+        completed: chatWizardCompleted,
+        abandoned: chatWizardAbandoned,
+        completionRate: chatWizardStarted > 0 ? ((chatWizardCompleted / chatWizardStarted) * 100).toFixed(1) : '0.0',
+        avgMessages: chatWizardCompleted > 0
+          ? Math.round(events.filter(e => e.event_action === 'chat_wizard_completed')
+              .reduce((sum, e) => sum + (e.messages_count || 0), 0) / chatWizardCompleted)
+          : 0,
+        avgStepsCompleted: chatWizardStepEvents.length > 0
+          ? (chatWizardStepEvents.reduce((sum, e) => sum + (e.step || 0), 0) / chatWizardStepEvents.length).toFixed(1)
+          : '0.0',
+        commonDropoffStep: chatWizardAbandoned > 0
+          ? Math.round(events.filter(e => e.event_action === 'chat_wizard_abandoned')
+              .reduce((sum, e) => sum + (e.step || 0), 0) / chatWizardAbandoned)
+          : null
+      };
+
       return res.status(200).json({
         success: true,
         totalEvents: events.length,
@@ -75,6 +131,7 @@ export default async function handler(req, res) {
           clickRate: totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(2) : '0.00',
           conversionRate: totalClicks > 0 ? ((totalPurchases / totalClicks) * 100).toFixed(2) : '0.00'
         },
+        chatWizard: chatWizardAnalytics,
         events: events.slice(-100), // Return last 100 events
         timestamp: new Date().toISOString()
       });
