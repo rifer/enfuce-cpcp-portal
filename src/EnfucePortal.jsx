@@ -169,16 +169,36 @@ const EnfucePortal = () => {
   // Send event to API
   const sendEventToAPI = async (eventData) => {
     try {
-      const response = await fetch('/api/events', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(eventData)
-      });
+      // Use sendBeacon for critical events (clicks) to ensure delivery
+      // even if page navigates or UI changes immediately after
+      const isCriticalEvent = eventData.eventType === 'click';
 
-      if (!response.ok) {
-        console.warn('Failed to send event to API:', response.statusText);
+      if (isCriticalEvent && navigator.sendBeacon) {
+        // sendBeacon is more reliable for events that happen during transitions
+        const blob = new Blob([JSON.stringify(eventData)], { type: 'application/json' });
+        const sent = navigator.sendBeacon('/api/events', blob);
+
+        if (!sent) {
+          // Fallback to fetch if sendBeacon fails
+          await fetch('/api/events', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(eventData),
+            keepalive: true // Keep request alive even if page unloads
+          });
+        }
+      } else {
+        // Regular fetch for non-critical events
+        const response = await fetch('/api/events', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(eventData),
+          keepalive: eventData.eventType === 'purchase' // Also keep purchases alive
+        });
+
+        if (!response.ok) {
+          console.warn('Failed to send event to API:', response.statusText);
+        }
       }
     } catch (error) {
       console.warn('Error sending event to API:', error);
