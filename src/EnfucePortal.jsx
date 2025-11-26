@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 
 const EnfucePortal = () => {
   const [activeSection, setActiveSection] = useState('dashboard');
@@ -20,6 +20,11 @@ const EnfucePortal = () => {
     countries: [],
     estimatedCards: 100
   });
+
+  // Stable update handler to prevent component recreation
+  const updateProgram = useCallback((updates) => {
+    setNewProgram(prev => ({ ...prev, ...updates }));
+  }, []);
 
   // Pricing calculation function
   const calculatePricing = (program) => {
@@ -476,16 +481,17 @@ const EnfucePortal = () => {
     </div>
   );
 
-  const WizardStep1 = () => (
+  const WizardStep1 = useMemo(() => () => (
     <div className="space-y-6">
       <div>
         <label className="block text-sm text-slate-300 mb-2">Program Name</label>
         <input
           type="text"
           value={newProgram.name}
-          onChange={(e) => setNewProgram({...newProgram, name: e.target.value})}
+          onChange={(e) => updateProgram({ name: e.target.value })}
           placeholder="e.g., Executive Travel Card"
           className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none"
+          autoComplete="off"
         />
       </div>
       
@@ -502,10 +508,10 @@ const EnfucePortal = () => {
           ].map(type => (
             <button
               key={type.id}
-              onClick={() => setNewProgram({...newProgram, type: type.id})}
+              onClick={() => updateProgram({ type: type.id })}
               className={`p-4 rounded-xl border text-left transition-all ${
-                newProgram.type === type.id 
-                  ? 'bg-cyan-500/20 border-cyan-500 text-white' 
+                newProgram.type === type.id
+                  ? 'bg-cyan-500/20 border-cyan-500 text-white'
                   : 'bg-slate-800/50 border-slate-700 text-slate-300 hover:border-slate-600'
               }`}
             >
@@ -517,9 +523,9 @@ const EnfucePortal = () => {
         </div>
       </div>
     </div>
-  );
+  ), [newProgram.name, newProgram.type, updateProgram]);
 
-  const WizardStep2 = () => (
+  const WizardStep2 = useMemo(() => () => (
     <div className="space-y-6">
       <div>
         <label className="block text-sm text-slate-300 mb-2">Funding Model</label>
@@ -532,10 +538,10 @@ const EnfucePortal = () => {
           ].map(model => (
             <button
               key={model.id}
-              onClick={() => setNewProgram({...newProgram, fundingModel: model.id})}
+              onClick={() => updateProgram({ fundingModel: model.id })}
               className={`p-4 rounded-xl border text-left transition-all ${
-                newProgram.fundingModel === model.id 
-                  ? 'bg-cyan-500/20 border-cyan-500 text-white' 
+                newProgram.fundingModel === model.id
+                  ? 'bg-cyan-500/20 border-cyan-500 text-white'
                   : 'bg-slate-800/50 border-slate-700 text-slate-300 hover:border-slate-600'
               }`}
             >
@@ -559,14 +565,14 @@ const EnfucePortal = () => {
               key={form.id}
               onClick={() => {
                 const current = newProgram.formFactor;
-                const updated = current.includes(form.id) 
+                const updated = current.includes(form.id)
                   ? current.filter(f => f !== form.id)
                   : [...current, form.id];
-                setNewProgram({...newProgram, formFactor: updated});
+                updateProgram({ formFactor: updated });
               }}
               className={`p-4 rounded-xl border text-center transition-all ${
                 newProgram.formFactor.includes(form.id)
-                  ? 'bg-cyan-500/20 border-cyan-500 text-white' 
+                  ? 'bg-cyan-500/20 border-cyan-500 text-white'
                   : 'bg-slate-800/50 border-slate-700 text-slate-300 hover:border-slate-600'
               }`}
             >
@@ -584,7 +590,7 @@ const EnfucePortal = () => {
             {['Visa', 'Mastercard'].map(scheme => (
               <button
                 key={scheme}
-                onClick={() => setNewProgram({...newProgram, scheme})}
+                onClick={() => updateProgram({ scheme })}
                 className={`flex-1 py-3 rounded-lg border font-medium transition-all ${
                   newProgram.scheme === scheme
                     ? 'bg-cyan-500/20 border-cyan-500 text-white'
@@ -600,7 +606,7 @@ const EnfucePortal = () => {
           <label className="block text-sm text-slate-300 mb-2">Currency</label>
           <select
             value={newProgram.currency}
-            onChange={(e) => setNewProgram({...newProgram, currency: e.target.value})}
+            onChange={(e) => updateProgram({ currency: e.target.value })}
             className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-cyan-500 outline-none"
           >
             <option value="EUR">EUR - Euro</option>
@@ -616,17 +622,18 @@ const EnfucePortal = () => {
         <input
           type="number"
           value={newProgram.estimatedCards}
-          onChange={(e) => setNewProgram({...newProgram, estimatedCards: parseInt(e.target.value) || 0})}
+          onChange={(e) => updateProgram({ estimatedCards: parseInt(e.target.value) || 0 })}
           placeholder="100"
           className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-cyan-500 outline-none"
           min="1"
+          autoComplete="off"
         />
         <div className="text-xs text-slate-500 mt-1">Used for pricing calculation</div>
       </div>
     </div>
-  );
+  ), [newProgram.fundingModel, newProgram.formFactor, newProgram.scheme, newProgram.currency, newProgram.estimatedCards, updateProgram]);
 
-  const WizardStep3 = () => (
+  const WizardStep3 = useMemo(() => () => (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -634,8 +641,9 @@ const EnfucePortal = () => {
           <input
             type="number"
             value={newProgram.dailyLimit}
-            onChange={(e) => setNewProgram({...newProgram, dailyLimit: parseInt(e.target.value)})}
+            onChange={(e) => updateProgram({ dailyLimit: parseInt(e.target.value) })}
             className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-cyan-500 outline-none"
+            autoComplete="off"
           />
         </div>
         <div>
@@ -643,8 +651,9 @@ const EnfucePortal = () => {
           <input
             type="number"
             value={newProgram.monthlyLimit}
-            onChange={(e) => setNewProgram({...newProgram, monthlyLimit: parseInt(e.target.value)})}
+            onChange={(e) => updateProgram({ monthlyLimit: parseInt(e.target.value) })}
             className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-cyan-500 outline-none"
+            autoComplete="off"
           />
         </div>
       </div>
@@ -657,14 +666,14 @@ const EnfucePortal = () => {
               key={mcc.code}
               onClick={() => {
                 const current = newProgram.mccRestrictions;
-                const updated = current.includes(mcc.code) 
+                const updated = current.includes(mcc.code)
                   ? current.filter(c => c !== mcc.code)
                   : [...current, mcc.code];
-                setNewProgram({...newProgram, mccRestrictions: updated});
+                updateProgram({ mccRestrictions: updated });
               }}
               className={`flex items-center gap-2 p-3 rounded-lg border text-left text-sm transition-all ${
                 newProgram.mccRestrictions.includes(mcc.code)
-                  ? 'bg-emerald-500/20 border-emerald-500 text-white' 
+                  ? 'bg-emerald-500/20 border-emerald-500 text-white'
                   : 'bg-slate-800/50 border-slate-700 text-slate-300 hover:border-slate-600'
               }`}
             >
@@ -691,8 +700,8 @@ const EnfucePortal = () => {
             <button
               key={option}
               className={`px-3 py-1.5 rounded-lg text-sm border transition-all ${
-                option === 'Europe Only' 
-                  ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300' 
+                option === 'Europe Only'
+                  ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300'
                   : 'bg-slate-700/50 border-slate-600 text-slate-400 hover:border-slate-500'
               }`}
             >
@@ -702,9 +711,9 @@ const EnfucePortal = () => {
         </div>
       </div>
     </div>
-  );
+  ), [newProgram.currency, newProgram.dailyLimit, newProgram.monthlyLimit, newProgram.mccRestrictions, updateProgram]);
 
-  const WizardStep4 = () => (
+  const WizardStep4 = useMemo(() => () => (
     <div className="space-y-6">
       <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700">
         <div className="text-sm text-slate-400 mb-4">Card Preview</div>
@@ -769,9 +778,9 @@ const EnfucePortal = () => {
         </div>
       </div>
     </div>
-  );
+  ), [newProgram.scheme]);
 
-  const WizardStep5 = () => {
+  const WizardStep5 = useMemo(() => () => {
     const pricing = calculatePricing(newProgram);
 
     return (
@@ -858,7 +867,7 @@ const EnfucePortal = () => {
         </div>
       </div>
     );
-  };
+  }, [newProgram]);
 
   const CreateProgramWizard = () => {
     const showLivePricing = pricingVariant === 'live' && wizardStep > 1 && wizardStep < 5;
