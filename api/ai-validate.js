@@ -66,6 +66,8 @@ export default async function handler(req, res) {
       actualProvider = result.provider || 'openai'; // Use provider from result if available
     } else if (provider === 'anthropic' && process.env.ANTHROPIC_API_KEY) {
       console.log('[AI-Validate] Using Anthropic Claude');
+      console.log('[AI-Validate] API Key length:', process.env.ANTHROPIC_API_KEY?.length);
+      console.log('[AI-Validate] API Key starts with:', process.env.ANTHROPIC_API_KEY?.substring(0, 10));
       result = await validateWithAnthropic(action, context);
       actualProvider = result.provider || 'anthropic'; // Use provider from result if available
     } else {
@@ -568,7 +570,23 @@ User: "I want all of the options" (when they previously said something unclear)
 Response: {"validated": true, "extracted_value": ["physical", "virtual", "tokenized"], "confidence": 1.0, "ai_response": "Understood! We'll include physical, virtual, and tokenized cards. Perfect! 😊", "requires_clarification": false}`;
 
   try {
-    console.log('[Anthropic] Sending request to Claude...');
+    console.log('[Anthropic] Preparing request...');
+    console.log('[Anthropic] API Key exists:', !!process.env.ANTHROPIC_API_KEY);
+    console.log('[Anthropic] API Key first 15 chars:', process.env.ANTHROPIC_API_KEY?.substring(0, 15));
+
+    const requestBody = {
+      model: 'claude-3-5-sonnet-20241022',
+      max_tokens: 500,
+      temperature: 0.3,
+      messages: [
+        { role: 'user', content: `${systemPrompt}\n\n${userPrompt}` }
+      ]
+    };
+
+    console.log('[Anthropic] Request model:', requestBody.model);
+    console.log('[Anthropic] Request message length:', requestBody.messages[0].content.length);
+    console.log('[Anthropic] Sending request to API...');
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -576,15 +594,10 @@ Response: {"validated": true, "extracted_value": ["physical", "virtual", "tokeni
         'x-api-key': process.env.ANTHROPIC_API_KEY,
         'anthropic-version': '2023-06-01'
       },
-      body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 500,
-        temperature: 0.3,
-        messages: [
-          { role: 'user', content: `${systemPrompt}\n\n${userPrompt}` }
-        ]
-      })
+      body: JSON.stringify(requestBody)
     });
+
+    console.log('[Anthropic] Response received. Status:', response.status);
 
     if (!response.ok) {
       const errorText = await response.text();
