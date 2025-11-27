@@ -484,16 +484,44 @@ Options: ${current_question.options ? current_question.options.join(', ') : 'N/A
 async function validateWithAnthropic(action, context) {
   const { current_question, user_input, collected_data } = context;
 
-  const systemPrompt = `You are a helpful assistant for card program creation. Extract structured data from natural language responses. Respond in JSON format.`;
+  const systemPrompt = `You are an AI assistant helping create a card program. Your job is to:
+1. Extract structured data from natural language responses
+2. Detect when users are greeting you (respond politely but ask for the actual answer)
+3. Understand corrections (e.g., "the name should be X, not Y")
+4. Handle casual phrasing (e.g., "we have 50 employees" = 50 cards)
+5. Always respond in valid JSON format
 
-  const userPrompt = `Question: ${current_question.question}
-Field: ${current_question.field}
-Type: ${current_question.type}
-User answer: "${user_input}"
+IMPORTANT: If the user is just greeting you or making small talk, politely acknowledge but ask for the actual answer to the question.`;
 
-Extract the value and respond with JSON: {"validated": true/false, "extracted_value": value, "confidence": 0-1, "ai_response": "friendly message", "requires_clarification": true/false}`;
+  const options = current_question.options ? `\nValid options: ${current_question.options.join(', ')}` : '';
+
+  const userPrompt = `Current Question: "${current_question.question}"
+Field to extract: ${current_question.field}
+Expected type: ${current_question.type}${options}
+User's response: "${user_input}"
+
+ANALYZE THIS:
+- Is this a greeting/small talk, or an actual answer?
+- If it's a correction (e.g., "no, it should be X"), extract the corrected value
+- If it's casual phrasing (e.g., "about 50 people"), extract the number
+- If unclear, ask for clarification
+
+Respond with ONLY this JSON (no markdown, no code blocks):
+{
+  "validated": true/false,
+  "extracted_value": "the extracted value or null",
+  "confidence": 0.0-1.0,
+  "ai_response": "A friendly, conversational response (if greeting detected, acknowledge but ask for the real answer)",
+  "requires_clarification": true/false
+}
+
+Examples:
+- Input: "hello, how are you" → {"validated": false, "extracted_value": null, "confidence": 0.0, "ai_response": "Hi! I'm doing great, thanks for asking! 😊 Now, what would you like to name your card program?", "requires_clarification": true}
+- Input: "the name should be Corporate Cards, not hello" → {"validated": true, "extracted_value": "Corporate Cards", "confidence": 1.0, "ai_response": "Got it! I'll update the name to 'Corporate Cards'.", "requires_clarification": false}
+- Input: "we have about 50 employees" (when asking for card count) → {"validated": true, "extracted_value": 50, "confidence": 0.95, "ai_response": "Perfect! I'll set it to 50 cards for your team.", "requires_clarification": false}`;
 
   try {
+    console.log('[Anthropic] Sending request to Claude...');
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -502,8 +530,9 @@ Extract the value and respond with JSON: {"validated": true/false, "extracted_va
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-3-sonnet-20240229',
-        max_tokens: 300,
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 500,
+        temperature: 0.3,
         messages: [
           { role: 'user', content: `${systemPrompt}\n\n${userPrompt}` }
         ]
@@ -511,23 +540,34 @@ Extract the value and respond with JSON: {"validated": true/false, "extracted_va
     });
 
     if (!response.ok) {
-      throw new Error('Anthropic API request failed');
+      const errorText = await response.text();
+      console.error('[Anthropic] API error:', response.status, errorText);
+      throw new Error(`Anthropic API request failed: ${response.status}`);
     }
 
     const data = await response.json();
     const aiResponse = data.content[0].text;
+    console.log('[Anthropic] Raw response:', aiResponse);
 
     try {
-      return JSON.parse(aiResponse);
-    } catch {
+      // Claude might wrap in markdown code blocks, remove them
+      const cleanedResponse = aiResponse.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      const parsed = JSON.parse(cleanedResponse);
+      console.log('[Anthropic] Parsed response:', parsed);
+      return parsed;
+    } catch (parseError) {
+      console.error('[Anthropic] JSON parse error:', parseError);
+      console.error('[Anthropic] Failed to parse:', aiResponse);
+      // Try to extract value from the text response
       return {
-        validated: true,
-        ai_response: aiResponse,
-        confidence: 0.8
+        validated: false,
+        ai_response: "I had trouble understanding that. Could you rephrase it?",
+        confidence: 0.3,
+        requires_clarification: true
       };
     }
   } catch (error) {
-    console.error('Anthropic error, falling back to local:', error);
+    console.error('[Anthropic] Error, falling back to local:', error);
     return validateLocally(action, context);
   }
 }
