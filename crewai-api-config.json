@@ -1,0 +1,277 @@
+{
+  "api_config": {
+    "base_url": "https://your-vercel-app.vercel.app",
+    "endpoints": {
+      "program_creation": {
+        "url": "/api/card-program",
+        "method": "POST",
+        "description": "Create a new card program with full configuration",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer YOUR_API_TOKEN"
+        },
+        "timeout": 30000,
+        "retry": {
+          "max_attempts": 3,
+          "backoff": "exponential"
+        }
+      },
+      "program_retrieval": {
+        "url": "/api/card-program",
+        "method": "GET",
+        "description": "Retrieve existing program details",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer YOUR_API_TOKEN"
+        },
+        "parameters": {
+          "programId": "string (required)"
+        }
+      },
+      "analytics_tracking": {
+        "url": "/api/events",
+        "method": "POST",
+        "description": "Track analytics events for program creation",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      }
+    }
+  },
+  "api_mapping": [
+    {
+      "api_name": "program_creation",
+      "trigger": "always",
+      "description": "Called after wizard completes to create the card program",
+      "parameters": {
+        "name": "{name}",
+        "type": "{type}",
+        "fundingModel": "{fundingModel}",
+        "formFactor": "{formFactor}",
+        "scheme": "{scheme}",
+        "currency": "{currency}",
+        "estimatedCards": "{estimatedCards}",
+        "dailyLimit": "{dailyLimit}",
+        "monthlyLimit": "{monthlyLimit}"
+      },
+      "validation": {
+        "required_fields": [
+          "name",
+          "type",
+          "fundingModel",
+          "scheme",
+          "currency"
+        ]
+      }
+    },
+    {
+      "api_name": "analytics_tracking",
+      "trigger": "on_program_created",
+      "description": "Track successful program creation event",
+      "parameters": {
+        "eventType": "program_created",
+        "sessionId": "{sessionId}",
+        "wizardVariant": "{wizardVariant}",
+        "programData": "{programSummary}"
+      }
+    }
+  ],
+  "conditional_api_calls": [
+    {
+      "condition": "type === 'corporate'",
+      "description": "Enable corporate-specific features",
+      "action": "add_parameter",
+      "parameter": {
+        "corporateBenefits": true,
+        "expenseManagement": true
+      }
+    },
+    {
+      "condition": "estimatedCards > 1000",
+      "description": "Trigger enterprise setup for high volume",
+      "action": "add_parameter",
+      "parameter": {
+        "enterpriseSetup": true,
+        "dedicatedSupport": true
+      }
+    },
+    {
+      "condition": "fundingModel === 'credit' || fundingModel === 'revolving'",
+      "description": "Initiate credit approval process",
+      "action": "add_parameter",
+      "parameter": {
+        "requiresCreditApproval": true,
+        "status": "pending_approval"
+      }
+    },
+    {
+      "condition": "formFactor.includes('tokenized')",
+      "description": "Enable mobile wallet integration",
+      "action": "add_parameter",
+      "parameter": {
+        "mobileWalletEnabled": true,
+        "tokenizationProvider": "auto"
+      }
+    },
+    {
+      "condition": "dailyLimit > 5000 || monthlyLimit > 50000",
+      "description": "Flag for high spending limits review",
+      "action": "add_parameter",
+      "parameter": {
+        "requiresLimitApproval": true
+      }
+    }
+  ],
+  "authentication": {
+    "type": "bearer_token",
+    "description": "Use Bearer token authentication for production APIs",
+    "header_name": "Authorization",
+    "token_prefix": "Bearer",
+    "environment_variable": "ENFUCE_API_TOKEN",
+    "fallback": {
+      "type": "none",
+      "description": "Development mode - no auth required for mock API"
+    }
+  },
+  "workflow": {
+    "steps": [
+      {
+        "step": 1,
+        "name": "Validate Input",
+        "description": "Validate all wizard responses before API calls",
+        "validations": [
+          "Check required fields are present",
+          "Validate data types",
+          "Ensure limits are positive numbers",
+          "Verify formFactor is array"
+        ]
+      },
+      {
+        "step": 2,
+        "name": "Process Conditional Logic",
+        "description": "Apply conditional parameters based on user selections",
+        "logic": "Evaluate all conditional_api_calls rules"
+      },
+      {
+        "step": 3,
+        "name": "Call Program Creation API",
+        "description": "POST to /api/card-program with full configuration",
+        "endpoint": "program_creation",
+        "on_success": "Continue to step 4",
+        "on_failure": "Retry up to 3 times, then report error"
+      },
+      {
+        "step": 4,
+        "name": "Track Analytics Event",
+        "description": "Log successful program creation to analytics",
+        "endpoint": "analytics_tracking",
+        "async": true
+      },
+      {
+        "step": 5,
+        "name": "Return Response",
+        "description": "Return program ID and next steps to user",
+        "response_format": {
+          "success": true,
+          "programId": "string",
+          "status": "active|pending_approval",
+          "nextSteps": "array",
+          "pricing": "object"
+        }
+      }
+    ]
+  },
+  "error_handling": {
+    "400": {
+      "description": "Bad Request - Missing or invalid parameters",
+      "action": "Show validation errors to user",
+      "retry": false
+    },
+    "401": {
+      "description": "Unauthorized - Invalid or missing API token",
+      "action": "Check authentication configuration",
+      "retry": false
+    },
+    "429": {
+      "description": "Rate Limit Exceeded",
+      "action": "Wait and retry with exponential backoff",
+      "retry": true,
+      "max_retries": 3
+    },
+    "500": {
+      "description": "Internal Server Error",
+      "action": "Retry up to 3 times",
+      "retry": true,
+      "max_retries": 3
+    },
+    "503": {
+      "description": "Service Unavailable",
+      "action": "Wait 5 seconds and retry",
+      "retry": true,
+      "max_retries": 5
+    }
+  },
+  "response_mapping": {
+    "program_creation": {
+      "success_path": "data.programId",
+      "status_path": "data.status",
+      "pricing_path": "data.pricing",
+      "next_steps_path": "data.nextSteps",
+      "api_calls_path": "data.apiCalls"
+    }
+  },
+  "testing": {
+    "mock_mode": {
+      "enabled": true,
+      "description": "Use local mock API for development",
+      "base_url": "http://localhost:3000"
+    },
+    "test_scenarios": [
+      {
+        "name": "Basic Corporate Card",
+        "input": {
+          "name": "Test Corporate Cards",
+          "type": "corporate",
+          "fundingModel": "prepaid",
+          "formFactor": ["physical", "virtual"],
+          "scheme": "Visa",
+          "currency": "EUR",
+          "estimatedCards": 500,
+          "dailyLimit": 500,
+          "monthlyLimit": 5000
+        },
+        "expected_status": "active"
+      },
+      {
+        "name": "Enterprise Credit Cards",
+        "input": {
+          "name": "Enterprise Credit Program",
+          "type": "corporate",
+          "fundingModel": "credit",
+          "formFactor": ["physical", "virtual", "tokenized"],
+          "scheme": "Mastercard",
+          "currency": "USD",
+          "estimatedCards": 2000,
+          "dailyLimit": 2000,
+          "monthlyLimit": 50000
+        },
+        "expected_status": "pending_approval",
+        "expected_triggers": ["enterprise_setup", "credit_approval"]
+      }
+    ]
+  },
+  "production_notes": {
+    "replace_with_real_apis": [
+      {
+        "endpoint": "program_creation",
+        "real_api": "https://api.enfuce.com/v1/programs",
+        "documentation": "https://docs.enfuce.com/api/programs"
+      }
+    ],
+    "environment_variables": {
+      "ENFUCE_API_TOKEN": "Your production API token",
+      "ENFUCE_API_BASE_URL": "https://api.enfuce.com/v1",
+      "ENFUCE_ENVIRONMENT": "production|sandbox"
+    }
+  }
+}
