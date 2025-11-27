@@ -29,6 +29,11 @@ export default async function handler(req, res) {
       collected_data = {}
     } = context || {};
 
+    // Debug logging
+    console.log('[AI-Validate] Provider requested:', provider);
+    console.log('[AI-Validate] ANTHROPIC_API_KEY exists:', !!process.env.ANTHROPIC_API_KEY);
+    console.log('[AI-Validate] User input:', user_input);
+
     // Validate required fields
     if (!action || !context || !user_input) {
       return res.status(400).json({
@@ -40,6 +45,7 @@ export default async function handler(req, res) {
     // Check for commands first (always local processing)
     const commandResult = processCommand(user_input, conversation_history, collected_data);
     if (commandResult.is_command) {
+      console.log('[AI-Validate] Command detected:', commandResult.command);
       return res.status(200).json({
         success: true,
         is_command: true,
@@ -54,16 +60,21 @@ export default async function handler(req, res) {
     let result;
 
     if (provider === 'openai' && process.env.OPENAI_API_KEY) {
+      console.log('[AI-Validate] Using OpenAI');
       result = await validateWithOpenAI(action, context);
     } else if (provider === 'anthropic' && process.env.ANTHROPIC_API_KEY) {
+      console.log('[AI-Validate] Using Anthropic Claude');
       result = await validateWithAnthropic(action, context);
     } else {
       // Fallback to local validation
+      console.log('[AI-Validate] Falling back to local validation. Provider:', provider, 'Has API key:', !!process.env.ANTHROPIC_API_KEY);
       result = await validateLocally(action, context);
     }
 
     return res.status(200).json({
       success: true,
+      provider_used: provider === 'anthropic' && process.env.ANTHROPIC_API_KEY ? 'anthropic' :
+                     provider === 'openai' && process.env.OPENAI_API_KEY ? 'openai' : 'local',
       ...result
     });
 

@@ -1085,6 +1085,10 @@ const EnfucePortal = () => {
 
       const result = await response.json();
 
+      // Debug: Log which provider was actually used
+      console.log('🤖 AI Provider Used:', result.provider_used || 'unknown');
+      console.log('📊 AI Response:', result);
+
       // Handle commands
       if (result.is_command) {
         simulateTyping(result.ai_response);
