@@ -984,11 +984,15 @@ const EnfucePortal = () => {
   const [chatInput, setChatInput] = useState('');
   const [chatStep, setChatStep] = useState(0);
   const [isTyping, setIsTyping] = useState(false);
+  const [conversationHistory, setConversationHistory] = useState([]);
+  const [aiProvider, setAiProvider] = useState('local'); // 'local', 'openai', or 'anthropic'
+  const [pendingConfirmation, setPendingConfirmation] = useState(null);
+  const [resetConfirmPending, setResetConfirmPending] = useState(false);
   const chatEndRef = useRef(null);
 
   // Conversation flow for chat wizard
   const conversationSteps = [
-    { question: "Hi! I'm here to help you create a new card program. What would you like to name your card program?", field: 'name', type: 'text' },
+    { question: "Hi! I'm here to help you create a new card program. 🤖\n\nI understand natural language - just answer in your own words! You can also type 'help' anytime, 'back' to go to the previous question, or 'summary' to see your progress.\n\nLet's get started! What would you like to name your card program?", field: 'name', type: 'text' },
     { question: "Great! What type of card program is this? (e.g., Corporate, Fleet/Fuel, Meal Card, Travel, Gift Card, or Transport)", field: 'type', type: 'select', options: ['corporate', 'fleet', 'meal', 'travel', 'gift', 'transport'] },
     { question: "Perfect! What funding model would you like? (Prepaid, Debit, Credit, or Revolving)", field: 'fundingModel', type: 'select', options: ['prepaid', 'debit', 'credit', 'revolving'] },
     { question: "Which card form factors should we include? You can choose multiple: Physical, Virtual, Tokenized (separate with commas)", field: 'formFactor', type: 'multiselect', options: ['physical', 'virtual', 'tokenized'] },
@@ -1013,14 +1017,201 @@ const EnfucePortal = () => {
     }, 500 + Math.random() * 500); // Simulate typing delay
   }, [addChatMessage]);
 
-  const handleChatSubmit = useCallback((e) => {
+  const handleChatSubmit = useCallback(async (e) => {
     e?.preventDefault();
     if (!chatInput.trim() || chatStep >= conversationSteps.length) return;
 
     const userMessage = chatInput.trim();
     addChatMessage(userMessage, true);
+    setChatInput('');
+
+    // Check for reset confirmation
+    if (resetConfirmPending) {
+      if (userMessage.toLowerCase() === 'yes') {
+        // Reset the wizard
+        setChatMessages([]);
+        setChatStep(0);
+        setConversationHistory([]);
+        setPendingConfirmation(null);
+        setResetConfirmPending(false);
+        setNewProgram({
+          name: '',
+          type: '',
+          fundingModel: '',
+          formFactor: [],
+          scheme: '',
+          currency: 'EUR',
+          estimatedCards: 100,
+          dailyLimit: 500,
+          monthlyLimit: 5000,
+          cardColor: '#1e293b',
+          cardDesign: 'corporate'
+        });
+        simulateTyping("Let's start fresh! What would you like to name your card program?", () => {
+          setChatStep(0);
+        });
+        return;
+      } else {
+        setResetConfirmPending(false);
+        simulateTyping("Okay, let's continue. " + conversationSteps[chatStep].question);
+        return;
+      }
+    }
 
     const currentStep = conversationSteps[chatStep];
+
+    try {
+      // Call AI validation API
+      const response = await fetch('/api/ai-validate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          provider: aiProvider,
+          action: 'validate',
+          context: {
+            current_question: currentStep,
+            user_input: userMessage,
+            conversation_history: conversationHistory,
+            collected_data: newProgram
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('AI validation failed');
+      }
+
+      const result = await response.json();
+
+      // Handle commands
+      if (result.is_command) {
+        simulateTyping(result.ai_response);
+
+        if (result.command === 'reset') {
+          setResetConfirmPending(true);
+        } else if (result.command === 'back') {
+          if (chatStep > 0) {
+            const prevStep = chatStep - 1;
+            setChatStep(prevStep);
+            setTimeout(() => {
+              simulateTyping(conversationSteps[prevStep].question);
+            }, 1000);
+          } else {
+            setTimeout(() => {
+              simulateTyping("We're already at the first question!");
+            }, 1000);
+          }
+        } else if (result.command === 'summary') {
+          // Just show the summary, don't change step
+        } else if (result.command === 'help') {
+          // Just show help, don't change step
+        } else if (result.command === 'skip') {
+          // Move to next step
+          proceedToNextStep();
+        }
+
+        return;
+      }
+
+      // Handle validation result
+      if (result.validated) {
+        const extractedValue = result.extracted_value !== undefined ? result.extracted_value : userMessage;
+
+        // Show AI response
+        if (result.ai_response) {
+          simulateTyping(result.ai_response);
+        }
+
+        // If confidence is low or requires clarification, ask for confirmation
+        if (result.requires_clarification || (result.confidence && result.confidence < 0.7)) {
+          setPendingConfirmation({
+            field: currentStep.field,
+            value: extractedValue,
+            step: chatStep
+          });
+          return;
+        }
+
+        // Update program data with validated value
+        if (currentStep.field !== 'complete') {
+          updateProgram({ [currentStep.field]: extractedValue });
+
+          // Add to conversation history
+          setConversationHistory(prev => [
+            ...prev,
+            {
+              question: currentStep.question,
+              field: currentStep.field,
+              user_input: userMessage,
+              extracted_value: extractedValue
+            }
+          ]);
+        }
+
+        // Track chat step completion
+        const sessionId = localStorage.getItem('session_id');
+        sendEventToAPI({
+          timestamp: new Date().toISOString(),
+          sessionId,
+          eventType: 'chat_wizard_event',
+          event_action: 'chat_wizard_step_completed',
+          ctaVariant: abTestVariant,
+          pricingVariant: pricingVariant,
+          wizardVariant: wizardVariant,
+          step: chatStep + 1,
+          field: currentStep.field,
+          step_name: currentStep.question.substring(0, 50),
+          ai_confidence: result.confidence || 1.0
+        });
+
+        if (typeof gtag !== 'undefined') {
+          gtag('event', 'chat_wizard_step_completed', {
+            step: chatStep + 1,
+            field: currentStep.field,
+            step_name: currentStep.question.substring(0, 50)
+          });
+        }
+
+        // Proceed to next step
+        setTimeout(() => {
+          proceedToNextStep();
+        }, 1500);
+
+      } else {
+        // Validation failed - show clarification
+        if (result.ai_response) {
+          simulateTyping(result.ai_response);
+        } else {
+          simulateTyping("I didn't quite understand that. Could you try again?");
+        }
+      }
+
+    } catch (error) {
+      console.error('AI validation error:', error);
+      // Fallback to simple local parsing
+      fallbackLocalParsing(userMessage, currentStep);
+    }
+  }, [chatInput, chatStep, addChatMessage, simulateTyping, updateProgram, aiProvider, conversationHistory, newProgram, resetConfirmPending, abTestVariant, pricingVariant, wizardVariant]);
+
+  // Helper function to proceed to next step
+  const proceedToNextStep = useCallback(() => {
+    const nextStep = chatStep + 1;
+    if (nextStep < conversationSteps.length) {
+      simulateTyping(conversationSteps[nextStep].question, () => {
+        setChatStep(nextStep);
+      });
+    } else {
+      // Complete - show summary
+      simulateTyping("🎉 Perfect! Your card program is ready. Click 'Complete Program' to finish!", () => {
+        setChatStep(nextStep);
+      });
+    }
+  }, [chatStep, simulateTyping, conversationSteps]);
+
+  // Fallback local parsing (when AI API fails)
+  const fallbackLocalParsing = useCallback((userMessage, currentStep) => {
     let processedValue = userMessage;
 
     // Parse and validate response based on field type
@@ -1044,44 +1235,10 @@ const EnfucePortal = () => {
       updateProgram({ [currentStep.field]: processedValue });
     }
 
-    setChatInput('');
-
-    // Track chat step completion
-    const sessionId = localStorage.getItem('session_id');
-    sendEventToAPI({
-      timestamp: new Date().toISOString(),
-      sessionId,
-      eventType: 'chat_wizard_event',
-      event_action: 'chat_wizard_step_completed',
-      ctaVariant: abTestVariant,
-      pricingVariant: pricingVariant,
-      wizardVariant: wizardVariant,
-      step: chatStep + 1,
-      field: currentStep.field,
-      step_name: currentStep.question.substring(0, 50)
+    simulateTyping(`Got it! Moving to the next question...`, () => {
+      proceedToNextStep();
     });
-
-    if (typeof gtag !== 'undefined') {
-      gtag('event', 'chat_wizard_step_completed', {
-        step: chatStep + 1,
-        field: currentStep.field,
-        step_name: currentStep.question.substring(0, 50)
-      });
-    }
-
-    // Move to next question
-    const nextStep = chatStep + 1;
-    if (nextStep < conversationSteps.length) {
-      simulateTyping(conversationSteps[nextStep].question, () => {
-        setChatStep(nextStep);
-      });
-    } else {
-      // Complete - show summary
-      simulateTyping("🎉 Perfect! Your card program is ready. Click 'Complete Program' to finish!", () => {
-        setChatStep(nextStep);
-      });
-    }
-  }, [chatInput, chatStep, addChatMessage, simulateTyping, updateProgram]);
+  }, [updateProgram, simulateTyping, proceedToNextStep]);
 
   // Initialize chat when wizard opens in chat mode
   useEffect(() => {
@@ -1216,23 +1373,78 @@ const EnfucePortal = () => {
           {/* Input Area */}
           <div className="p-6 border-t border-[#7DD3C0]/20 bg-[#2C3E50]/30">
             {chatStep < conversationSteps.length - 1 ? (
-              <form onSubmit={handleChatSubmit} className="flex gap-3">
-                <input
-                  type="text"
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  placeholder="Type your answer..."
-                  className="flex-1 bg-slate-800 border border-slate-600 rounded-xl px-5 py-4 text-white placeholder-slate-500 focus:border-[#7DD3C0] focus:ring-2 focus:ring-[#7DD3C0] outline-none text-lg"
-                  autoFocus
-                />
-                <button
-                  type="submit"
-                  disabled={!chatInput.trim() || isTyping}
-                  className="px-8 py-4 bg-[#FFD93D] text-[#2C3E50] rounded-xl font-bold hover:bg-[#FFC700] disabled:opacity-50 disabled:cursor-not-allowed transition-all text-lg"
-                >
-                  Send
-                </button>
-              </form>
+              <div className="space-y-3">
+                {/* Quick Command Buttons */}
+                <div className="flex gap-2 flex-wrap">
+                  <button
+                    onClick={() => {
+                      setChatInput('summary');
+                      setTimeout(() => handleChatSubmit({ preventDefault: () => {} }), 100);
+                    }}
+                    className="px-3 py-1.5 bg-slate-700/50 text-slate-300 rounded-lg text-sm hover:bg-slate-600/50 transition-colors border border-slate-600/30"
+                  >
+                    📊 Summary
+                  </button>
+                  <button
+                    onClick={() => {
+                      setChatInput('back');
+                      setTimeout(() => handleChatSubmit({ preventDefault: () => {} }), 100);
+                    }}
+                    disabled={chatStep === 0}
+                    className="px-3 py-1.5 bg-slate-700/50 text-slate-300 rounded-lg text-sm hover:bg-slate-600/50 transition-colors border border-slate-600/30 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    ← Back
+                  </button>
+                  <button
+                    onClick={() => {
+                      setChatInput('help');
+                      setTimeout(() => handleChatSubmit({ preventDefault: () => {} }), 100);
+                    }}
+                    className="px-3 py-1.5 bg-slate-700/50 text-slate-300 rounded-lg text-sm hover:bg-slate-600/50 transition-colors border border-slate-600/30"
+                  >
+                    ❓ Help
+                  </button>
+                  <button
+                    onClick={() => {
+                      setChatInput('reset');
+                      setTimeout(() => handleChatSubmit({ preventDefault: () => {} }), 100);
+                    }}
+                    className="px-3 py-1.5 bg-slate-700/50 text-slate-300 rounded-lg text-sm hover:bg-slate-600/50 transition-colors border border-slate-600/30"
+                  >
+                    🔄 Reset
+                  </button>
+                  <div className="ml-auto flex items-center gap-2 text-xs text-slate-500">
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                      AI Enabled
+                    </span>
+                  </div>
+                </div>
+
+                {/* Input Form */}
+                <form onSubmit={handleChatSubmit} className="flex gap-3">
+                  <input
+                    type="text"
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    placeholder="Type your answer or a command..."
+                    className="flex-1 bg-slate-800 border border-slate-600 rounded-xl px-5 py-4 text-white placeholder-slate-500 focus:border-[#7DD3C0] focus:ring-2 focus:ring-[#7DD3C0] outline-none text-lg"
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    disabled={!chatInput.trim() || isTyping}
+                    className="px-8 py-4 bg-[#FFD93D] text-[#2C3E50] rounded-xl font-bold hover:bg-[#FFC700] disabled:opacity-50 disabled:cursor-not-allowed transition-all text-lg"
+                  >
+                    Send
+                  </button>
+                </form>
+
+                {/* Help Text */}
+                <div className="text-xs text-slate-500 text-center">
+                  💡 Tip: Just type naturally! I understand phrases like "about 50 employees" or "we're in Sweden"
+                </div>
+              </div>
             ) : (
               <button
                 onClick={() => {
