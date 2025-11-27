@@ -97,20 +97,39 @@ const EnfucePortal = () => {
 
   // A/B Test: Initialize variant assignment and analytics (2x2 factorial)
   useEffect(() => {
+    // Check for URL query parameters to force variants
+    const urlParams = new URLSearchParams(window.location.search);
+    const forceCta = urlParams.get('cta'); // ?cta=A or ?cta=B
+    const forcePricing = urlParams.get('pricing'); // ?pricing=live or ?pricing=final
+    const forceWizard = urlParams.get('wizard'); // ?wizard=traditional or ?wizard=chat
+
     // Check if user already has variants assigned
-    let ctaVariant = localStorage.getItem('abtest_cta_variant');
-    let pricingVar = localStorage.getItem('abtest_pricing_variant');
-    let wizardVar = localStorage.getItem('abtest_wizard_variant');
+    let ctaVariant = forceCta || localStorage.getItem('abtest_cta_variant');
+    let pricingVar = forcePricing || localStorage.getItem('abtest_pricing_variant');
+    let wizardVar = forceWizard || localStorage.getItem('abtest_wizard_variant');
+
+    // Validate forced values
+    if (ctaVariant && !['A', 'B'].includes(ctaVariant)) ctaVariant = null;
+    if (pricingVar && !['live', 'final'].includes(pricingVar)) pricingVar = null;
+    if (wizardVar && !['traditional', 'chat'].includes(wizardVar)) wizardVar = null;
 
     if (!ctaVariant || !pricingVar || !wizardVar) {
       // Randomly assign variants
-      ctaVariant = Math.random() < 0.5 ? 'A' : 'B';
-      pricingVar = Math.random() < 0.5 ? 'live' : 'final';
-      wizardVar = Math.random() < 0.5 ? 'traditional' : 'chat';
+      ctaVariant = ctaVariant || (Math.random() < 0.5 ? 'A' : 'B');
+      pricingVar = pricingVar || (Math.random() < 0.5 ? 'live' : 'final');
+      wizardVar = wizardVar || (Math.random() < 0.5 ? 'traditional' : 'chat');
 
       localStorage.setItem('abtest_cta_variant', ctaVariant);
       localStorage.setItem('abtest_pricing_variant', pricingVar);
       localStorage.setItem('abtest_wizard_variant', wizardVar);
+    }
+
+    // If forced via URL, update localStorage
+    if (forceCta || forcePricing || forceWizard) {
+      if (forceCta) localStorage.setItem('abtest_cta_variant', ctaVariant);
+      if (forcePricing) localStorage.setItem('abtest_pricing_variant', pricingVar);
+      if (forceWizard) localStorage.setItem('abtest_wizard_variant', wizardVar);
+      console.log('🎯 Forced variants:', { cta: ctaVariant, pricing: pricingVar, wizard: wizardVar });
     }
 
     setAbTestVariant(ctaVariant);
@@ -146,6 +165,70 @@ const EnfucePortal = () => {
       console.table(summary.byVariant);
       return { events, summary };
     };
+
+    // Console commands for forcing variants
+    window.forceVariants = (cta, pricing, wizard) => {
+      if (cta && ['A', 'B'].includes(cta)) {
+        localStorage.setItem('abtest_cta_variant', cta);
+        console.log(`✓ CTA variant set to: ${cta}`);
+      }
+      if (pricing && ['live', 'final'].includes(pricing)) {
+        localStorage.setItem('abtest_pricing_variant', pricing);
+        console.log(`✓ Pricing variant set to: ${pricing}`);
+      }
+      if (wizard && ['traditional', 'chat'].includes(wizard)) {
+        localStorage.setItem('abtest_wizard_variant', wizard);
+        console.log(`✓ Wizard variant set to: ${wizard}`);
+      }
+      console.log('🔄 Reload the page to see changes.');
+      console.log('Current variants:', {
+        cta: localStorage.getItem('abtest_cta_variant'),
+        pricing: localStorage.getItem('abtest_pricing_variant'),
+        wizard: localStorage.getItem('abtest_wizard_variant')
+      });
+    };
+
+    // Show current variants
+    window.showVariants = () => {
+      const variants = {
+        cta: localStorage.getItem('abtest_cta_variant'),
+        pricing: localStorage.getItem('abtest_pricing_variant'),
+        wizard: localStorage.getItem('abtest_wizard_variant')
+      };
+      console.log('📊 Current A/B Test Variants:');
+      console.table(variants);
+      return variants;
+    };
+
+    // Quick presets
+    window.forcePresets = {
+      dashboardChat: () => {
+        window.forceVariants('B', 'live', 'chat');
+        console.log('📱 Preset: Dashboard + Chat + Live Pricing');
+      },
+      headerTraditional: () => {
+        window.forceVariants('A', 'final', 'traditional');
+        console.log('📄 Preset: Header + Traditional + Final Pricing');
+      },
+      reset: () => {
+        localStorage.removeItem('abtest_cta_variant');
+        localStorage.removeItem('abtest_pricing_variant');
+        localStorage.removeItem('abtest_wizard_variant');
+        console.log('🔄 Variants reset. Reload to get random assignment.');
+      }
+    };
+
+    // Log available commands
+    console.log('🎯 A/B Testing Console Commands:');
+    console.log('  window.showVariants() - Show current variants');
+    console.log('  window.forceVariants(cta, pricing, wizard) - Force specific variants');
+    console.log('    Example: window.forceVariants("B", "live", "chat")');
+    console.log('  window.forcePresets.dashboardChat() - Dashboard + Chat preset');
+    console.log('  window.forcePresets.headerTraditional() - Header + Traditional preset');
+    console.log('  window.forcePresets.reset() - Reset to random');
+    console.log('');
+    console.log('💡 URL Parameters (force without console):');
+    console.log('  ?cta=B&pricing=live&wizard=chat');
 
     window.downloadCSV = () => {
       const events = JSON.parse(localStorage.getItem('conversion_events') || '[]');
@@ -985,7 +1068,7 @@ const EnfucePortal = () => {
   const [chatStep, setChatStep] = useState(0);
   const [isTyping, setIsTyping] = useState(false);
   const [conversationHistory, setConversationHistory] = useState([]);
-  const [aiProvider, setAiProvider] = useState('anthropic'); // 'local', 'openai', or 'anthropic'
+  const [aiProvider, setAiProvider] = useState('local'); // 'local', 'openai', or 'anthropic' (default: local)
   const [pendingConfirmation, setPendingConfirmation] = useState(null);
   const [resetConfirmPending, setResetConfirmPending] = useState(false);
   const chatEndRef = useRef(null);
@@ -1244,6 +1327,47 @@ const EnfucePortal = () => {
     });
   }, [updateProgram, simulateTyping, proceedToNextStep]);
 
+  // AI Provider console commands (only run once on mount)
+  useEffect(() => {
+    // Create a ref to the current provider for the getter function
+    window.getAIProvider = () => {
+      console.log(`🤖 Current AI Provider: ${window._currentAIProvider || 'local'}`);
+      return window._currentAIProvider || 'local';
+    };
+
+    window.setAIProvider = (provider) => {
+      if (['local', 'anthropic', 'openai'].includes(provider)) {
+        setAiProvider(provider);
+        window._currentAIProvider = provider;
+        console.log(`✓ AI Provider changed to: ${provider}`);
+        if (provider === 'local') {
+          console.log('  → Using local rule-based validation (free, fast)');
+        } else if (provider === 'anthropic') {
+          console.log('  → Using Anthropic Claude (conversational, costs ~$0.006/conversation)');
+        } else if (provider === 'openai') {
+          console.log('  → Using OpenAI GPT-4 (advanced, costs ~$0.02/conversation)');
+        }
+      } else {
+        console.error('Invalid provider. Use: "local", "anthropic", or "openai"');
+      }
+    };
+
+    // Initialize the global provider ref
+    window._currentAIProvider = 'local';
+
+    // Log AI commands (only once)
+    console.log('🤖 AI Provider Commands:');
+    console.log('  window.getAIProvider() - Show current AI provider');
+    console.log('  window.setAIProvider("local") - Use local validation (default)');
+    console.log('  window.setAIProvider("anthropic") - Use Anthropic Claude');
+    console.log('  window.setAIProvider("openai") - Use OpenAI GPT-4');
+  }, []); // Empty dependency array - run once on mount
+
+  // Update global ref when aiProvider changes
+  useEffect(() => {
+    window._currentAIProvider = aiProvider;
+  }, [aiProvider]);
+
   // Initialize chat when wizard opens in chat mode
   useEffect(() => {
     if (showCreateWizard && wizardVariant === 'chat' && chatMessages.length === 0) {
@@ -1419,8 +1543,8 @@ const EnfucePortal = () => {
                   </button>
                   <div className="ml-auto flex items-center gap-2 text-xs text-slate-500">
                     <span className="flex items-center gap-1">
-                      <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                      Anthropic Claude
+                      <span className={`w-2 h-2 rounded-full animate-pulse ${aiProvider === 'local' ? 'bg-blue-500' : 'bg-green-500'}`}></span>
+                      {aiProvider === 'local' ? 'Local AI' : aiProvider === 'anthropic' ? 'Anthropic Claude' : 'OpenAI GPT-4'}
                     </span>
                   </div>
                 </div>

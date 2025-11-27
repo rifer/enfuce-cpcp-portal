@@ -48,6 +48,7 @@ export default async function handler(req, res) {
       console.log('[AI-Validate] Command detected:', commandResult.command);
       return res.status(200).json({
         success: true,
+        provider_used: 'local', // Commands are always processed locally
         is_command: true,
         command: commandResult.command,
         command_action: commandResult.action,
