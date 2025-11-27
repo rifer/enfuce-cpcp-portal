@@ -58,23 +58,26 @@ export default async function handler(req, res) {
 
     // Route to appropriate AI provider or local validation
     let result;
+    let actualProvider = 'local'; // Track which provider actually worked
 
     if (provider === 'openai' && process.env.OPENAI_API_KEY) {
       console.log('[AI-Validate] Using OpenAI');
       result = await validateWithOpenAI(action, context);
+      actualProvider = result.provider || 'openai'; // Use provider from result if available
     } else if (provider === 'anthropic' && process.env.ANTHROPIC_API_KEY) {
       console.log('[AI-Validate] Using Anthropic Claude');
       result = await validateWithAnthropic(action, context);
+      actualProvider = result.provider || 'anthropic'; // Use provider from result if available
     } else {
       // Fallback to local validation
       console.log('[AI-Validate] Falling back to local validation. Provider:', provider, 'Has API key:', !!process.env.ANTHROPIC_API_KEY);
       result = await validateLocally(action, context);
+      actualProvider = 'local';
     }
 
     return res.status(200).json({
       success: true,
-      provider_used: provider === 'anthropic' && process.env.ANTHROPIC_API_KEY ? 'anthropic' :
-                     provider === 'openai' && process.env.OPENAI_API_KEY ? 'openai' : 'local',
+      provider_used: actualProvider, // Use the ACTUAL provider that worked
       ...result
     });
 
@@ -598,20 +601,18 @@ Response: {"validated": true, "extracted_value": ["physical", "virtual", "tokeni
       const cleanedResponse = aiResponse.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       const parsed = JSON.parse(cleanedResponse);
       console.log('[Anthropic] Parsed response:', parsed);
-      return parsed;
+      return { ...parsed, provider: 'anthropic' }; // Mark as successfully from Anthropic
     } catch (parseError) {
       console.error('[Anthropic] JSON parse error:', parseError);
       console.error('[Anthropic] Failed to parse:', aiResponse);
-      // Try to extract value from the text response
-      return {
-        validated: false,
-        ai_response: "I had trouble understanding that. Could you rephrase it?",
-        confidence: 0.3,
-        requires_clarification: true
-      };
+      console.log('[Anthropic] Falling back to local due to parse error');
+      // Fall back to local validation
+      const localResult = await validateLocally(action, context);
+      return { ...localResult, provider: 'local' };
     }
   } catch (error) {
     console.error('[Anthropic] Error, falling back to local:', error);
-    return validateLocally(action, context);
+    const localResult = await validateLocally(action, context);
+    return { ...localResult, provider: 'local' }; // Mark as local fallback
   }
 }
