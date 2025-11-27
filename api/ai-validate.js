@@ -66,6 +66,8 @@ export default async function handler(req, res) {
       actualProvider = result.provider || 'openai'; // Use provider from result if available
     } else if (provider === 'anthropic' && process.env.ANTHROPIC_API_KEY) {
       console.log('[AI-Validate] Using Anthropic Claude');
+      console.log('[AI-Validate] API Key length:', process.env.ANTHROPIC_API_KEY?.length);
+      console.log('[AI-Validate] API Key starts with:', process.env.ANTHROPIC_API_KEY?.substring(0, 10));
       result = await validateWithAnthropic(action, context);
       actualProvider = result.provider || 'anthropic'; // Use provider from result if available
     } else {
@@ -524,16 +526,25 @@ They responded: "${user_input}"
 
 Context: We're collecting the "${current_question.field}" field (type: ${current_question.type})${options}
 
-Your job:
-1. If it's a GREETING → Respond warmly, then redirect to the question
-2. If it says "all" or "all of them" → They want ALL the options
-3. If it's a NUMBER WORD (one thousand, fifty) → Convert to digits
-4. If it's a TYPO (vorporate, Misa) → Find the closest match smartly
-5. If it mentions a LOCATION (Spain, Sweden) → Map to currency
-6. If it's a CORRECTION ("no, I meant X") → Extract the new value X
-7. If UNCLEAR → Ask a natural follow-up question
+IMPORTANT FIELD RULES:
+- If type is "select" or "multiple_choice" → SINGLE value only (not multiple!)
+- If type is "multiselect" or "multi_select" → Multiple values OK
+- Current field "${current_question.field}" is type: ${current_question.type}
 
-Be WARM and CONVERSATIONAL. Don't sound robotic!
+Your job:
+1. GREETINGS (hello, hi, hey) → Respond warmly, redirect to question
+2. QUESTIONS ("can I use more than one?") → Answer their question, then ask for their choice
+3. "ALL" or "all of them":
+   - If MULTISELECT field → Extract ALL options ✓
+   - If SINGLE-SELECT field → Ask them to pick ONE ✗
+4. NUMBER WORDS ("one thousand", "fifty") → Convert to digits (1000, 50)
+5. MATH EXPRESSIONS ("200*30") → Calculate the result (6000)
+6. TYPOS ("Feal" = Fleet, "vorporate" = corporate, "Misa" = Visa) → Find closest match
+7. LOCATIONS ("Spain" = EUR, "Sweden" = SEK) → Map to currency
+8. QUESTIONS IN RESPONSE ("would 200 be fine?") → Extract the number (200)
+9. CORRECTIONS ("no, I meant X") → Extract X
+
+Be WARM and CONVERSATIONAL. Answer questions naturally!
 
 Output JSON only (no markdown):
 {
@@ -546,29 +557,48 @@ Output JSON only (no markdown):
 
 CONVERSATIONAL EXAMPLES:
 
-User: "hello" or "hey, how are you"
-Response: {"validated": false, "extracted_value": null, "confidence": 0.0, "ai_response": "Hey! 😊 I'm great, thanks! So, what should we call your card program?", "requires_clarification": true}
+User: "hello" or "hey"
+Response: {"validated": false, "extracted_value": null, "confidence": 0.0, "ai_response": "Hey! 😊 So, what should we call your card program?", "requires_clarification": true}
 
-User: "all" or "all three" or "all of them" (when asking about physical/virtual/tokenized)
-Response: {"validated": true, "extracted_value": ["physical", "virtual", "tokenized"], "confidence": 1.0, "ai_response": "Awesome! We'll include all three - physical cards, virtual cards, and tokenized for mobile wallets. 👍", "requires_clarification": false}
+User: "can I use more than one?" (when asking about SINGLE-select field like funding model)
+Response: {"validated": false, "extracted_value": null, "confidence": 0.0, "ai_response": "Great question! For this one, you'll need to pick just one funding model. Which works best: Prepaid, Debit, Credit, or Revolving?", "requires_clarification": true}
 
-User: "one thousand" (when asking how many cards)
-Response: {"validated": true, "extracted_value": 1000, "confidence": 1.0, "ai_response": "Perfect! 1,000 cards it is. That's a nice-sized program!", "requires_clarification": false}
+User: "all" (when MULTISELECT field like form factors)
+Response: {"validated": true, "extracted_value": ["physical", "virtual", "tokenized"], "confidence": 1.0, "ai_response": "Perfect! We'll include all three - physical, virtual, and tokenized. 👍", "requires_clarification": false}
 
-User: "vorporate" (typo for corporate)
-Response: {"validated": true, "extracted_value": "corporate", "confidence": 0.95, "ai_response": "Got it - corporate cards for business expenses. Great choice!", "requires_clarification": false}
+User: "all" or "both" (when SINGLE-select field like scheme)
+Response: {"validated": false, "extracted_value": null, "confidence": 0.0, "ai_response": "I can only set one card scheme for this program. Would you prefer Visa or Mastercard?", "requires_clarification": true}
 
-User: "my clients are in Spain"
-Response: {"validated": true, "extracted_value": "EUR", "confidence": 1.0, "ai_response": "Perfect! Since you're in Spain, we'll use EUR (Euro) as the currency. ✓", "requires_clarification": false}
+User: "Feal" (typo for Fleet)
+Response: {"validated": true, "extracted_value": "fleet", "confidence": 0.9, "ai_response": "Got it! Fleet cards for fuel and vehicle expenses. Great choice!", "requires_clarification": false}
 
-User: "no, I meant 1000 cards" (correction)
-Response: {"validated": true, "extracted_value": 1000, "confidence": 1.0, "ai_response": "Ah, got it! Updating that to 1,000 cards. Thanks for clarifying!", "requires_clarification": false}
+User: "200*30" (math for monthly limit)
+Response: {"validated": true, "extracted_value": 6000, "confidence": 1.0, "ai_response": "Perfect! 6,000 per month (200 x 30). That makes sense!", "requires_clarification": false}
 
-User: "I want all of the options" (when they previously said something unclear)
-Response: {"validated": true, "extracted_value": ["physical", "virtual", "tokenized"], "confidence": 1.0, "ai_response": "Understood! We'll include physical, virtual, and tokenized cards. Perfect! 😊", "requires_clarification": false}`;
+User: "would 200 euros be fine?" (question with embedded answer)
+Response: {"validated": true, "extracted_value": 200, "confidence": 0.95, "ai_response": "200 euros sounds great! Let's go with that.", "requires_clarification": false}
+
+User: "we're based in Spain" (location → currency)
+Response: {"validated": true, "extracted_value": "EUR", "confidence": 1.0, "ai_response": "Perfect! Since you're in Spain, we'll use EUR. ✓", "requires_clarification": false}`;
 
   try {
-    console.log('[Anthropic] Sending request to Claude...');
+    console.log('[Anthropic] Preparing request...');
+    console.log('[Anthropic] API Key exists:', !!process.env.ANTHROPIC_API_KEY);
+    console.log('[Anthropic] API Key first 15 chars:', process.env.ANTHROPIC_API_KEY?.substring(0, 15));
+
+    const requestBody = {
+      model: 'claude-3-haiku-20240307', // Claude 3 Haiku (smallest, fastest, cheapest - should work for everyone)
+      max_tokens: 500,
+      temperature: 0.3,
+      messages: [
+        { role: 'user', content: `${systemPrompt}\n\n${userPrompt}` }
+      ]
+    };
+
+    console.log('[Anthropic] Request model:', requestBody.model);
+    console.log('[Anthropic] Request message length:', requestBody.messages[0].content.length);
+    console.log('[Anthropic] Sending request to API...');
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -576,15 +606,10 @@ Response: {"validated": true, "extracted_value": ["physical", "virtual", "tokeni
         'x-api-key': process.env.ANTHROPIC_API_KEY,
         'anthropic-version': '2023-06-01'
       },
-      body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 500,
-        temperature: 0.3,
-        messages: [
-          { role: 'user', content: `${systemPrompt}\n\n${userPrompt}` }
-        ]
-      })
+      body: JSON.stringify(requestBody)
     });
+
+    console.log('[Anthropic] Response received. Status:', response.status);
 
     if (!response.ok) {
       const errorText = await response.text();
