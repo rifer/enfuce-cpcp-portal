@@ -985,7 +985,7 @@ const EnfucePortal = () => {
   const [chatStep, setChatStep] = useState(0);
   const [isTyping, setIsTyping] = useState(false);
   const [conversationHistory, setConversationHistory] = useState([]);
-  const [aiProvider, setAiProvider] = useState('local'); // 'local', 'openai', or 'anthropic'
+  const [aiProvider, setAiProvider] = useState('anthropic'); // 'local', 'openai', or 'anthropic'
   const [pendingConfirmation, setPendingConfirmation] = useState(null);
   const [resetConfirmPending, setResetConfirmPending] = useState(false);
   const chatEndRef = useRef(null);
@@ -1416,7 +1416,7 @@ const EnfucePortal = () => {
                   <div className="ml-auto flex items-center gap-2 text-xs text-slate-500">
                     <span className="flex items-center gap-1">
                       <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                      AI Enabled
+                      Anthropic Claude
                     </span>
                   </div>
                 </div>
