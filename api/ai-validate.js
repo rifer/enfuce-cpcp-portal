@@ -575,7 +575,7 @@ Response: {"validated": true, "extracted_value": ["physical", "virtual", "tokeni
     console.log('[Anthropic] API Key first 15 chars:', process.env.ANTHROPIC_API_KEY?.substring(0, 15));
 
     const requestBody = {
-      model: 'claude-3-sonnet-20240229', // Claude 3 Sonnet (base model - widely available)
+      model: 'claude-3-haiku-20240307', // Claude 3 Haiku (smallest, fastest, cheapest - should work for everyone)
       max_tokens: 500,
       temperature: 0.3,
       messages: [
