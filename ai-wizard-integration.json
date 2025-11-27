@@ -1,0 +1,269 @@
+{
+  "ai_integration": {
+    "description": "Conversational AI enhancement for wizard validation and interaction",
+    "providers": {
+      "openai": {
+        "name": "OpenAI GPT-4",
+        "api_url": "https://api.openai.com/v1/chat/completions",
+        "model": "gpt-4-turbo-preview",
+        "cost_per_1k_tokens": 0.01,
+        "environment_variable": "OPENAI_API_KEY",
+        "recommended": true,
+        "features": ["validation", "clarification", "summarization"]
+      },
+      "anthropic": {
+        "name": "Anthropic Claude",
+        "api_url": "https://api.anthropic.com/v1/messages",
+        "model": "claude-3-sonnet-20240229",
+        "cost_per_1k_tokens": 0.003,
+        "environment_variable": "ANTHROPIC_API_KEY",
+        "recommended": true,
+        "features": ["validation", "clarification", "summarization"]
+      },
+      "local": {
+        "name": "Local Validation (Free)",
+        "description": "Rule-based validation without AI API calls",
+        "cost_per_1k_tokens": 0,
+        "recommended": "for_development",
+        "features": ["basic_validation"]
+      }
+    }
+  },
+  "features": {
+    "intelligent_validation": {
+      "description": "AI validates user responses for accuracy and completeness",
+      "examples": [
+        {
+          "question": "How many cards do you estimate you'll need?",
+          "user_input": "We have about 50 employees",
+          "ai_interpretation": "50 cards",
+          "ai_response": "Got it! So you need approximately 50 cards for your employees. Is that correct?"
+        },
+        {
+          "question": "What currency should the program use?",
+          "user_input": "We're based in Sweden",
+          "ai_interpretation": "SEK",
+          "ai_response": "Since you're in Sweden, I'll set the currency to SEK (Swedish Krona). Does that work?"
+        }
+      ]
+    },
+    "answer_clarification": {
+      "description": "AI asks follow-up questions when input is unclear",
+      "examples": [
+        {
+          "question": "What type of card program is this?",
+          "user_input": "for my team",
+          "ai_response": "I understand this is for your team. Is this for:\n- Corporate expenses\n- Travel\n- Meal benefits\nWhich category fits best?"
+        }
+      ]
+    },
+    "conversation_reset": {
+      "description": "Users can reset or go back to previous questions",
+      "commands": [
+        {
+          "trigger": "reset",
+          "action": "restart_wizard",
+          "confirmation": "Are you sure you want to start over? All progress will be lost."
+        },
+        {
+          "trigger": "back",
+          "action": "go_to_previous_question",
+          "confirmation": "Going back to the previous question..."
+        },
+        {
+          "trigger": "edit [field]",
+          "action": "jump_to_specific_question",
+          "example": "edit card type"
+        }
+      ]
+    },
+    "progress_summary": {
+      "description": "Show what's been collected so far",
+      "commands": [
+        {
+          "trigger": "summary",
+          "action": "show_collected_data",
+          "example_response": "Here's what we have so far:\n✓ Program Name: Corporate Cards\n✓ Type: Corporate\n✓ Funding: Prepaid\n... (remaining questions)"
+        }
+      ]
+    },
+    "help_system": {
+      "description": "Context-aware help at each step",
+      "commands": [
+        {
+          "trigger": "help",
+          "action": "explain_current_question",
+          "example": "This question asks about card form factors. You can choose:\n- Physical: Traditional plastic cards\n- Virtual: Digital card numbers\n- Tokenized: Mobile wallet (Apple/Google Pay)"
+        }
+      ]
+    }
+  },
+  "implementation": {
+    "api_endpoint": "/api/ai-validate",
+    "request_format": {
+      "provider": "openai|anthropic|local",
+      "action": "validate|clarify|summarize|help",
+      "context": {
+        "current_question": "object",
+        "user_input": "string",
+        "conversation_history": "array",
+        "collected_data": "object"
+      }
+    },
+    "response_format": {
+      "success": true,
+      "validated": true,
+      "extracted_value": "parsed value",
+      "confidence": 0.95,
+      "ai_response": "Natural language response to user",
+      "suggestions": ["alternative interpretations"],
+      "requires_clarification": false
+    }
+  },
+  "prompts": {
+    "system_prompt": "You are a helpful assistant for the Enfuce Card Program Creation wizard. Your job is to:\n1. Understand user inputs in natural language\n2. Extract structured data from conversational responses\n3. Validate answers make sense for card program creation\n4. Ask clarifying questions when needed\n5. Provide helpful explanations\n6. Maintain a friendly, professional tone\n\nCurrent wizard context:\n{wizard_context}",
+    "validation_prompt": "User was asked: '{question}'\nUser responded: '{user_input}'\nExpected field: '{field}' (type: {type})\nOptions: {options}\n\nTask: Extract the appropriate value and validate it. If unclear, suggest clarification.",
+    "clarification_prompt": "The user's response '{user_input}' to '{question}' is ambiguous. Generate a helpful clarifying question with specific options.",
+    "summary_prompt": "Summarize the card program details collected so far in a clear, bulleted format."
+  },
+  "commands": {
+    "user_commands": [
+      {
+        "command": "reset",
+        "description": "Start the wizard over from the beginning",
+        "aliases": ["start over", "restart", "begin again"]
+      },
+      {
+        "command": "back",
+        "description": "Go to the previous question",
+        "aliases": ["previous", "go back", "undo"]
+      },
+      {
+        "command": "summary",
+        "description": "Show all collected information",
+        "aliases": ["show progress", "what do we have", "review"]
+      },
+      {
+        "command": "help",
+        "description": "Get help with the current question",
+        "aliases": ["?", "explain", "what does this mean"]
+      },
+      {
+        "command": "edit <field>",
+        "description": "Jump to a specific question to change it",
+        "examples": ["edit program name", "edit currency", "edit card type"]
+      },
+      {
+        "command": "skip",
+        "description": "Skip optional questions",
+        "note": "Only works for non-required fields"
+      }
+    ]
+  },
+  "validation_rules": {
+    "number_fields": {
+      "strategy": "extract_numbers",
+      "examples": [
+        "about 50" → 50,
+        "hundred cards" → 100,
+        "a thousand" → 1000,
+        "50-100" → 75 (midpoint with confirmation)
+      ]
+    },
+    "select_fields": {
+      "strategy": "fuzzy_matching",
+      "examples": [
+        "we're a corporation" → "corporate",
+        "fuel cards" → "fleet",
+        "employee meals" → "meal"
+      ]
+    },
+    "multi_select": {
+      "strategy": "extract_multiple",
+      "examples": [
+        "both physical and digital" → ["physical", "virtual"],
+        "plastic cards and apple pay" → ["physical", "tokenized"]
+      ]
+    }
+  },
+  "error_handling": {
+    "ai_api_failure": {
+      "action": "fallback_to_local_validation",
+      "message": "AI validation unavailable, using standard validation"
+    },
+    "unclear_input_after_3_tries": {
+      "action": "show_options_explicitly",
+      "message": "Let me show you the available options..."
+    },
+    "invalid_command": {
+      "action": "suggest_available_commands",
+      "message": "I didn't understand that command. Available commands: reset, back, summary, help"
+    }
+  },
+  "configuration": {
+    "enable_ai_validation": true,
+    "ai_provider": "openai",
+    "fallback_to_local": true,
+    "max_clarification_attempts": 3,
+    "confidence_threshold": 0.7,
+    "enable_commands": true,
+    "enable_summarization": true,
+    "enable_help": true
+  },
+  "example_conversations": [
+    {
+      "scenario": "Natural language number input",
+      "exchanges": [
+        {
+          "ai": "How many cards do you estimate you'll need?",
+          "user": "We have about 50 people in the company",
+          "ai_processing": "Extracted: 50, Confidence: 0.95",
+          "ai_response": "Perfect! I'll set it to 50 cards for your 50 employees. Shall we continue?"
+        }
+      ]
+    },
+    {
+      "scenario": "User wants to go back",
+      "exchanges": [
+        {
+          "ai": "What currency should the program use?",
+          "user": "wait, go back",
+          "ai_processing": "Command detected: 'back'",
+          "ai_response": "No problem! Going back to the previous question...\n\nWhich card scheme would you prefer? (Visa or Mastercard)"
+        }
+      ]
+    },
+    {
+      "scenario": "User requests summary",
+      "exchanges": [
+        {
+          "user": "show me what we have so far",
+          "ai_processing": "Command: 'summary'",
+          "ai_response": "Here's your card program so far:\n\n✅ Program Name: Corporate Cards\n✅ Type: Corporate\n✅ Funding Model: Prepaid\n✅ Form Factors: Physical, Virtual\n✅ Scheme: Visa\n\nStill to complete:\n⏳ Currency\n⏳ Estimated Cards\n⏳ Spending Limits"
+        }
+      ]
+    },
+    {
+      "scenario": "Unclear response needs clarification",
+      "exchanges": [
+        {
+          "ai": "What type of card program is this?",
+          "user": "for business",
+          "ai_processing": "Confidence: 0.4 (too low)",
+          "ai_response": "I understand this is for business use. Which specific type fits best?\n\n• Corporate - General business expenses\n• Fleet - Fuel and vehicle costs\n• Travel - Travel and accommodation\n\nWhich one?"
+        }
+      ]
+    }
+  ],
+  "cost_estimation": {
+    "average_conversation": {
+      "questions": 10,
+      "avg_tokens_per_exchange": 200,
+      "total_tokens": 2000,
+      "cost_with_gpt4": "$0.02",
+      "cost_with_claude": "$0.006",
+      "cost_with_local": "$0"
+    },
+    "recommendation": "Use Claude Sonnet for best balance of quality and cost"
+  }
+}
