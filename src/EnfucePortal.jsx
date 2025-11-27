@@ -1327,16 +1327,18 @@ const EnfucePortal = () => {
     });
   }, [updateProgram, simulateTyping, proceedToNextStep]);
 
-  // AI Provider console commands
+  // AI Provider console commands (only run once on mount)
   useEffect(() => {
+    // Create a ref to the current provider for the getter function
     window.getAIProvider = () => {
-      console.log(`🤖 Current AI Provider: ${aiProvider}`);
-      return aiProvider;
+      console.log(`🤖 Current AI Provider: ${window._currentAIProvider || 'local'}`);
+      return window._currentAIProvider || 'local';
     };
 
     window.setAIProvider = (provider) => {
       if (['local', 'anthropic', 'openai'].includes(provider)) {
         setAiProvider(provider);
+        window._currentAIProvider = provider;
         console.log(`✓ AI Provider changed to: ${provider}`);
         if (provider === 'local') {
           console.log('  → Using local rule-based validation (free, fast)');
@@ -1350,12 +1352,20 @@ const EnfucePortal = () => {
       }
     };
 
-    // Log AI commands
+    // Initialize the global provider ref
+    window._currentAIProvider = 'local';
+
+    // Log AI commands (only once)
     console.log('🤖 AI Provider Commands:');
     console.log('  window.getAIProvider() - Show current AI provider');
     console.log('  window.setAIProvider("local") - Use local validation (default)');
     console.log('  window.setAIProvider("anthropic") - Use Anthropic Claude');
     console.log('  window.setAIProvider("openai") - Use OpenAI GPT-4');
+  }, []); // Empty dependency array - run once on mount
+
+  // Update global ref when aiProvider changes
+  useEffect(() => {
+    window._currentAIProvider = aiProvider;
   }, [aiProvider]);
 
   // Initialize chat when wizard opens in chat mode
