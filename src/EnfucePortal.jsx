@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { createConfiguration, transformWizardToAPI } from './api/configurationService';
+import { createConfiguration, transformWizardToAPI, getConfigurationSchema } from './api/configurationService';
 
 const EnfucePortal = () => {
   const [activeSection, setActiveSection] = useState('dashboard');
@@ -9,6 +9,11 @@ const EnfucePortal = () => {
   const [abTestVariant, setAbTestVariant] = useState(null);
   const [pricingVariant, setPricingVariant] = useState(null);
   const [wizardVariant, setWizardVariant] = useState(null); // 'traditional' or 'chat'
+
+  // Configuration schema from API (dynamic options)
+  const [configSchema, setConfigSchema] = useState(null);
+  const [schemaLoading, setSchemaLoading] = useState(false);
+
   const [newProgram, setNewProgram] = useState({
     name: '',
     type: '',
@@ -96,6 +101,43 @@ const EnfucePortal = () => {
       prevStepRef.current = wizardStep;
     }
   });
+
+  // Fetch configuration schema on mount
+  useEffect(() => {
+    const fetchSchema = async () => {
+      setSchemaLoading(true);
+      try {
+        const result = await getConfigurationSchema();
+        setConfigSchema(result.schema);
+        console.log('📋 Configuration schema loaded:', result.schema);
+      } catch (error) {
+        console.error('Failed to load configuration schema:', error);
+        // Fallback to hardcoded values if API fails
+        setConfigSchema(null);
+      } finally {
+        setSchemaLoading(false);
+      }
+    };
+
+    fetchSchema();
+  }, []);
+
+  // Helper function to get options from schema with fallback
+  const getSchemaOptions = useCallback((fieldName, fallback = []) => {
+    if (!configSchema || !configSchema[fieldName]) {
+      return fallback;
+    }
+
+    const field = configSchema[fieldName];
+
+    // Handle array fields (e.g., form_factors with items.options)
+    if (field.type === 'array' && field.items && field.items.options) {
+      return field.items.options;
+    }
+
+    // Handle regular enum fields
+    return field.options || fallback;
+  }, [configSchema]);
 
   // Pricing calculation function
   const calculatePricing = (program) => {
@@ -1129,19 +1171,27 @@ const EnfucePortal = () => {
   const [resetConfirmPending, setResetConfirmPending] = useState(false);
   const chatEndRef = useRef(null);
 
-  // Conversation flow for chat wizard
-  const conversationSteps = [
-    { question: "Hi! I'm here to help you create a new card program. 🤖\n\nI understand natural language - just answer in your own words! You can also type 'help' anytime, 'back' to go to the previous question, or 'summary' to see your progress.\n\nLet's get started! What would you like to name your card program?", field: 'name', type: 'text' },
-    { question: "Great! What type of card program is this? (e.g., Corporate, Fleet/Fuel, Meal Card, Travel, Gift Card, or Transport)", field: 'type', type: 'select', options: ['corporate', 'fleet', 'meal', 'travel', 'gift', 'transport'] },
-    { question: "Perfect! What funding model would you like? (Prepaid, Debit, Credit, or Revolving)", field: 'fundingModel', type: 'select', options: ['prepaid', 'debit', 'credit', 'revolving'] },
-    { question: "Which card form factors should we include? You can choose multiple: Physical, Virtual, Tokenized (separate with commas)", field: 'formFactor', type: 'multiselect', options: ['physical', 'virtual', 'tokenized'] },
-    { question: "Which card scheme would you prefer? (Visa or Mastercard)", field: 'scheme', type: 'select', options: ['Visa', 'Mastercard'] },
-    { question: "What currency should the program use? (EUR, USD, GBP, or SEK)", field: 'currency', type: 'select', options: ['EUR', 'USD', 'GBP', 'SEK'] },
-    { question: "How many cards do you estimate you'll need?", field: 'estimatedCards', type: 'number' },
-    { question: "Almost done! What should the daily spending limit be? (in your selected currency)", field: 'dailyLimit', type: 'number' },
-    { question: "And what about the monthly spending limit?", field: 'monthlyLimit', type: 'number' },
-    { question: "Excellent! I've gathered all the information. Let me create your program summary...", field: 'complete', type: 'complete' }
-  ];
+  // Conversation flow for chat wizard (uses dynamic schema options)
+  const conversationSteps = React.useMemo(() => {
+    const programTypes = getSchemaOptions('program_type', ['corporate', 'fleet', 'meal', 'travel', 'gift', 'transport']);
+    const fundingModels = getSchemaOptions('funding_model', ['prepaid', 'debit', 'credit', 'revolving']);
+    const formFactors = getSchemaOptions('form_factors', ['physical', 'virtual', 'tokenized']);
+    const cardSchemes = getSchemaOptions('card_scheme', ['Visa', 'Mastercard']);
+    const currencies = getSchemaOptions('currency', ['EUR', 'USD', 'GBP', 'SEK']);
+
+    return [
+      { question: "Hi! I'm here to help you create a new card program. 🤖\n\nI understand natural language - just answer in your own words! You can also type 'help' anytime, 'back' to go to the previous question, or 'summary' to see your progress.\n\nLet's get started! What would you like to name your card program?", field: 'name', type: 'text' },
+      { question: `Great! What type of card program is this? (e.g., ${programTypes.map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(', ')})`, field: 'type', type: 'select', options: programTypes },
+      { question: `Perfect! What funding model would you like? (${fundingModels.map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(', ')})`, field: 'fundingModel', type: 'select', options: fundingModels },
+      { question: `Which card form factors should we include? You can choose multiple: ${formFactors.map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(', ')} (separate with commas)`, field: 'formFactor', type: 'multiselect', options: formFactors },
+      { question: `Which card scheme would you prefer? (${cardSchemes.join(' or ')})`, field: 'scheme', type: 'select', options: cardSchemes },
+      { question: `What currency should the program use? (${currencies.join(', ')})`, field: 'currency', type: 'select', options: currencies },
+      { question: "How many cards do you estimate you'll need?", field: 'estimatedCards', type: 'number' },
+      { question: "Almost done! What should the daily spending limit be? (in your selected currency)", field: 'dailyLimit', type: 'number' },
+      { question: "And what about the monthly spending limit?", field: 'monthlyLimit', type: 'number' },
+      { question: "Excellent! I've gathered all the information. Let me create your program summary...", field: 'complete', type: 'complete' }
+    ];
+  }, [configSchema, getSchemaOptions]);
 
   const addChatMessage = useCallback((message, isUser = false) => {
     setChatMessages(prev => [...prev, { text: message, isUser, timestamp: new Date() }]);
