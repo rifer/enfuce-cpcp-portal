@@ -6,10 +6,18 @@
 -- Enable UUID extension if not already enabled
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+-- Drop existing tables if they exist (clean slate)
+DROP TABLE IF EXISTS card_schemes CASCADE;
+DROP TABLE IF EXISTS program_types CASCADE;
+DROP TABLE IF EXISTS funding_models CASCADE;
+DROP TABLE IF EXISTS form_factors CASCADE;
+DROP TABLE IF EXISTS currencies CASCADE;
+DROP TABLE IF EXISTS configuration_statuses CASCADE;
+
 -- ============================================================
 -- CARD SCHEMES
 -- ============================================================
-CREATE TABLE IF NOT EXISTS card_schemes (
+CREATE TABLE card_schemes (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   code VARCHAR(50) UNIQUE NOT NULL,
   display_name VARCHAR(100) NOT NULL,
@@ -35,7 +43,7 @@ ON CONFLICT (code) DO NOTHING;
 -- ============================================================
 -- PROGRAM TYPES
 -- ============================================================
-CREATE TABLE IF NOT EXISTS program_types (
+CREATE TABLE program_types (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   code VARCHAR(50) UNIQUE NOT NULL,
   display_name VARCHAR(100) NOT NULL,
@@ -62,7 +70,7 @@ ON CONFLICT (code) DO NOTHING;
 -- ============================================================
 -- FUNDING MODELS
 -- ============================================================
-CREATE TABLE IF NOT EXISTS funding_models (
+CREATE TABLE funding_models (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   code VARCHAR(50) UNIQUE NOT NULL,
   display_name VARCHAR(100) NOT NULL,
@@ -86,7 +94,7 @@ ON CONFLICT (code) DO NOTHING;
 -- ============================================================
 -- FORM FACTORS
 -- ============================================================
-CREATE TABLE IF NOT EXISTS form_factors (
+CREATE TABLE form_factors (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   code VARCHAR(50) UNIQUE NOT NULL,
   display_name VARCHAR(100) NOT NULL,
@@ -108,7 +116,7 @@ ON CONFLICT (code) DO NOTHING;
 -- ============================================================
 -- CURRENCIES
 -- ============================================================
-CREATE TABLE IF NOT EXISTS currencies (
+CREATE TABLE currencies (
   code CHAR(3) PRIMARY KEY,
   display_name VARCHAR(100) NOT NULL,
   symbol VARCHAR(10),
@@ -137,7 +145,7 @@ ON CONFLICT (code) DO NOTHING;
 -- ============================================================
 -- STATUSES
 -- ============================================================
-CREATE TABLE IF NOT EXISTS configuration_statuses (
+CREATE TABLE configuration_statuses (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   code VARCHAR(50) UNIQUE NOT NULL,
   display_name VARCHAR(100) NOT NULL,
@@ -240,23 +248,17 @@ CREATE POLICY "Allow read access to active statuses"
   USING (is_active = true);
 
 -- ============================================================
--- VERIFICATION QUERIES
+-- VERIFICATION (Optional - comment out if causing issues)
 -- ============================================================
 
--- Verify data was inserted
-SELECT 'Card Schemes' as table_name, COUNT(*) as count FROM card_schemes WHERE is_active = true
-UNION ALL
-SELECT 'Program Types', COUNT(*) FROM program_types WHERE is_active = true
-UNION ALL
-SELECT 'Funding Models', COUNT(*) FROM funding_models WHERE is_active = true
-UNION ALL
-SELECT 'Form Factors', COUNT(*) FROM form_factors WHERE is_active = true
-UNION ALL
-SELECT 'Currencies', COUNT(*) FROM currencies WHERE is_active = true
-UNION ALL
-SELECT 'Statuses', COUNT(*) FROM configuration_statuses WHERE is_active = true;
-
--- List all card schemes
-SELECT code, display_name, is_active, sort_order
-FROM card_schemes
-ORDER BY sort_order;
+-- Verify tables were created successfully
+DO $$
+BEGIN
+  RAISE NOTICE 'Migration completed successfully!';
+  RAISE NOTICE 'Card Schemes: %', (SELECT COUNT(*) FROM card_schemes);
+  RAISE NOTICE 'Program Types: %', (SELECT COUNT(*) FROM program_types);
+  RAISE NOTICE 'Funding Models: %', (SELECT COUNT(*) FROM funding_models);
+  RAISE NOTICE 'Form Factors: %', (SELECT COUNT(*) FROM form_factors);
+  RAISE NOTICE 'Currencies: %', (SELECT COUNT(*) FROM currencies);
+  RAISE NOTICE 'Statuses: %', (SELECT COUNT(*) FROM configuration_statuses);
+END $$;
