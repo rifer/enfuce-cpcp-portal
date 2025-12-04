@@ -144,33 +144,51 @@ async function handleCreateConfiguration(req, res) {
     });
   }
 
-  // Validate enum fields
+  // Validate enum fields (case-insensitive)
   const validProgramTypes = ['corporate', 'fleet', 'meal', 'travel', 'gift', 'transport'];
-  if (!validProgramTypes.includes(configData.program_type)) {
+  if (!validProgramTypes.includes(configData.program_type?.toLowerCase())) {
     return res.status(400).json({
       success: false,
       error: 'Invalid program_type',
+      received: configData.program_type,
       validValues: validProgramTypes
     });
   }
 
   const validFundingModels = ['prepaid', 'debit', 'credit', 'revolving'];
-  if (!validFundingModels.includes(configData.funding_model)) {
+  if (!validFundingModels.includes(configData.funding_model?.toLowerCase())) {
     return res.status(400).json({
       success: false,
       error: 'Invalid funding_model',
+      received: configData.funding_model,
       validValues: validFundingModels
     });
   }
 
   const validSchemes = ['Visa', 'Mastercard'];
-  if (!validSchemes.includes(configData.card_scheme)) {
+  const normalizedScheme = configData.card_scheme?.charAt(0).toUpperCase() + configData.card_scheme?.slice(1).toLowerCase();
+  if (!validSchemes.includes(normalizedScheme)) {
     return res.status(400).json({
       success: false,
       error: 'Invalid card_scheme',
+      received: configData.card_scheme,
       validValues: validSchemes
     });
   }
+  // Normalize the scheme for storage
+  configData.card_scheme = normalizedScheme;
+
+  // Normalize other enum fields for storage
+  configData.program_type = configData.program_type.toLowerCase();
+  configData.funding_model = configData.funding_model.toLowerCase();
+
+  // Normalize form_factors array (all lowercase)
+  if (Array.isArray(configData.form_factors)) {
+    configData.form_factors = configData.form_factors.map(f => f.toLowerCase());
+  }
+
+  // Normalize currency (all uppercase)
+  configData.currency = configData.currency.toUpperCase();
 
   // Get or create client
   let clientId = configData.client_id;

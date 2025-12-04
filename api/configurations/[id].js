@@ -122,49 +122,68 @@ async function handleUpdateConfiguration(req, res, id) {
     });
   }
 
-  // Validate enum fields if provided
+  // Validate enum fields if provided (case-insensitive)
   if (updateData.program_type) {
     const validProgramTypes = ['corporate', 'fleet', 'meal', 'travel', 'gift', 'transport'];
-    if (!validProgramTypes.includes(updateData.program_type)) {
+    if (!validProgramTypes.includes(updateData.program_type?.toLowerCase())) {
       return res.status(400).json({
         success: false,
         error: 'Invalid program_type',
+        received: updateData.program_type,
         validValues: validProgramTypes
       });
     }
+    updateData.program_type = updateData.program_type.toLowerCase();
   }
 
   if (updateData.funding_model) {
     const validFundingModels = ['prepaid', 'debit', 'credit', 'revolving'];
-    if (!validFundingModels.includes(updateData.funding_model)) {
+    if (!validFundingModels.includes(updateData.funding_model?.toLowerCase())) {
       return res.status(400).json({
         success: false,
         error: 'Invalid funding_model',
+        received: updateData.funding_model,
         validValues: validFundingModels
       });
     }
+    updateData.funding_model = updateData.funding_model.toLowerCase();
   }
 
   if (updateData.card_scheme) {
     const validSchemes = ['Visa', 'Mastercard'];
-    if (!validSchemes.includes(updateData.card_scheme)) {
+    const normalizedScheme = updateData.card_scheme?.charAt(0).toUpperCase() + updateData.card_scheme?.slice(1).toLowerCase();
+    if (!validSchemes.includes(normalizedScheme)) {
       return res.status(400).json({
         success: false,
         error: 'Invalid card_scheme',
+        received: updateData.card_scheme,
         validValues: validSchemes
       });
     }
+    updateData.card_scheme = normalizedScheme;
   }
 
   if (updateData.status) {
     const validStatuses = ['draft', 'pending_approval', 'active', 'suspended', 'archived'];
-    if (!validStatuses.includes(updateData.status)) {
+    if (!validStatuses.includes(updateData.status?.toLowerCase())) {
       return res.status(400).json({
         success: false,
         error: 'Invalid status',
+        received: updateData.status,
         validValues: validStatuses
       });
     }
+    updateData.status = updateData.status.toLowerCase();
+  }
+
+  // Normalize form_factors if provided
+  if (updateData.form_factors && Array.isArray(updateData.form_factors)) {
+    updateData.form_factors = updateData.form_factors.map(f => f.toLowerCase());
+  }
+
+  // Normalize currency if provided
+  if (updateData.currency) {
+    updateData.currency = updateData.currency.toUpperCase();
   }
 
   // Recalculate pricing if financial parameters changed
