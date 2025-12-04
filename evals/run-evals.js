@@ -70,7 +70,7 @@ function getQuestionConfig(field) {
     program_name: { field: 'program_name', type: 'text', minLength: 3 },
     program_type: { field: 'program_type', type: 'select', options: ['corporate', 'fleet', 'meal', 'travel', 'gift', 'transport', 'healthcare', 'education'] },
     funding_model: { field: 'funding_model', type: 'select', options: ['prepaid', 'debit', 'credit', 'charge', 'hybrid'] },
-    form_factor: { field: 'form_factor', type: 'multiselect', options: ['physical', 'virtual', 'digital_wallet'] },
+    form_factor: { field: 'form_factor', type: 'multiselect', options: ['physical', 'virtual', 'tokenized'] },
     card_scheme: { field: 'card_scheme', type: 'select', options: ['Visa', 'Mastercard', 'American Express', 'Discover', 'UnionPay', 'JCB'] },
     currency: { field: 'currency', type: 'select', options: ['EUR', 'USD', 'GBP', 'CHF', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF'] },
     estimated_cards: { field: 'estimated_cards', type: 'number', minimum: 1 },
