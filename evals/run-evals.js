@@ -63,6 +63,24 @@ function loadTestCases() {
 }
 
 /**
+ * Get question configuration for a field
+ */
+function getQuestionConfig(field) {
+  const questions = {
+    program_name: { field: 'program_name', type: 'text', minLength: 3 },
+    program_type: { field: 'program_type', type: 'select', options: ['corporate', 'fleet', 'meal', 'travel', 'gift', 'transport', 'healthcare', 'education'] },
+    funding_model: { field: 'funding_model', type: 'select', options: ['prepaid', 'debit', 'credit', 'charge', 'hybrid'] },
+    form_factor: { field: 'form_factor', type: 'multiselect', options: ['physical', 'virtual', 'digital_wallet'] },
+    card_scheme: { field: 'card_scheme', type: 'select', options: ['Visa', 'Mastercard', 'American Express', 'Discover', 'UnionPay', 'JCB'] },
+    currency: { field: 'currency', type: 'select', options: ['EUR', 'USD', 'GBP', 'CHF', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF'] },
+    estimated_cards: { field: 'estimated_cards', type: 'number', minimum: 1 },
+    daily_limit: { field: 'daily_limit', type: 'number', minimum: 0 },
+    monthly_limit: { field: 'monthly_limit', type: 'number', minimum: 0 }
+  };
+  return questions[field] || { field, type: 'text' };
+}
+
+/**
  * Call the AI validation API
  */
 async function callAIValidationAPI(input, step, conversationHistory = []) {
@@ -81,7 +99,7 @@ async function callAIValidationAPI(input, step, conversationHistory = []) {
         provider: AI_PROVIDER,
         action: 'validate',
         context: {
-          current_question: { field: step },
+          current_question: getQuestionConfig(step),
           user_input: input,
           conversation_history: conversationHistory,
           collected_data: {}
