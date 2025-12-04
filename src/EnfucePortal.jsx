@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { createConfiguration, transformWizardToAPI } from './api/configurationService';
 
 const EnfucePortal = () => {
   const [activeSection, setActiveSection] = useState('dashboard');
@@ -25,10 +26,65 @@ const EnfucePortal = () => {
     cardBackgroundImage: null
   });
 
+  // Save status for API integration
+  const [saveStatus, setSaveStatus] = useState({
+    loading: false,
+    success: false,
+    error: null,
+    savedConfig: null
+  });
+
   // Stable update handler to prevent component recreation
   const updateProgram = useCallback((updates) => {
     setNewProgram(prev => ({ ...prev, ...updates }));
   }, []);
+
+  // Save configuration to API
+  const saveConfiguration = useCallback(async () => {
+    setSaveStatus({ loading: true, success: false, error: null, savedConfig: null });
+
+    try {
+      // Transform wizard data to API format
+      const apiData = transformWizardToAPI(newProgram, {
+        email: 'portal-user@enfuce.com', // TODO: Replace with actual user email when auth is implemented
+        name: 'Portal User',
+        company: 'Enfuce'
+      });
+
+      console.log('💾 Saving configuration to API:', apiData);
+
+      // Call API to create configuration
+      const result = await createConfiguration(apiData);
+
+      console.log('✅ Configuration saved successfully:', result);
+
+      setSaveStatus({
+        loading: false,
+        success: true,
+        error: null,
+        savedConfig: result.data
+      });
+
+      // Show success message for 3 seconds, then close wizard
+      setTimeout(() => {
+        setShowCreateWizard(false);
+        setWizardStep(1);
+        setChatMessages([]);
+        setChatStep(0);
+        setSaveStatus({ loading: false, success: false, error: null, savedConfig: null });
+      }, 3000);
+
+    } catch (error) {
+      console.error('❌ Failed to save configuration:', error);
+
+      setSaveStatus({
+        loading: false,
+        success: false,
+        error: error.message || 'Failed to save configuration',
+        savedConfig: null
+      });
+    }
+  }, [newProgram]);
 
   // Wizard scroll management
   const scrollContainerRef = useRef(null);
@@ -1498,6 +1554,25 @@ const EnfucePortal = () => {
             <div ref={chatEndRef} />
           </div>
 
+          {/* Error Message */}
+          {saveStatus.error && (
+            <div className="mx-6 mb-4 bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <span className="text-2xl">⚠️</span>
+                <div>
+                  <div className="font-semibold text-red-400 mb-1">Failed to Save Configuration</div>
+                  <div className="text-sm text-red-300">{saveStatus.error}</div>
+                  <button
+                    onClick={() => setSaveStatus({ ...saveStatus, error: null })}
+                    className="mt-2 text-sm text-red-400 hover:text-red-300 underline"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Input Area */}
           <div className="p-6 border-t border-[#7DD3C0]/20 bg-[#2C3E50]/30">
             {chatStep < conversationSteps.length - 1 ? (
@@ -1599,13 +1674,23 @@ const EnfucePortal = () => {
                     });
                   }
 
-                  setShowCreateWizard(false);
-                  setChatMessages([]);
-                  setChatStep(0);
+                  // Save configuration to API
+                  saveConfiguration();
                 }}
-                className="w-full px-8 py-4 bg-[#7DD3C0] text-[#2C3E50] rounded-xl font-bold hover:bg-[#6BC3B0] transition-all shadow-lg text-lg"
+                disabled={saveStatus.loading}
+                className={`w-full px-8 py-4 rounded-xl font-bold transition-all shadow-lg text-lg ${
+                  saveStatus.loading
+                    ? 'bg-slate-600 text-slate-400 cursor-wait'
+                    : saveStatus.success
+                      ? 'bg-emerald-500 text-white'
+                      : 'bg-[#7DD3C0] text-[#2C3E50] hover:bg-[#6BC3B0]'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
-                🎉 Complete Program
+                {saveStatus.loading
+                  ? '💾 Saving Configuration...'
+                  : saveStatus.success
+                    ? '✅ Configuration Saved!'
+                    : '🎉 Complete Program'}
               </button>
             )}
           </div>
@@ -1814,6 +1899,25 @@ const EnfucePortal = () => {
             <div className={`${showLivePricing ? 'lg:flex-1' : 'w-full'}`}>
               <WizardStepIndicator />
 
+              {/* Error Message */}
+              {saveStatus.error && (
+                <div className="mb-6 bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl">⚠️</span>
+                    <div>
+                      <div className="font-semibold text-red-400 mb-1">Failed to Save Configuration</div>
+                      <div className="text-sm text-red-300">{saveStatus.error}</div>
+                      <button
+                        onClick={() => setSaveStatus({ ...saveStatus, error: null })}
+                        className="mt-2 text-sm text-red-400 hover:text-red-300 underline"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Step 1: Program Name & Type */}
               {wizardStep === 1 && (
                 <div className="space-y-6">
@@ -1891,19 +1995,27 @@ const EnfucePortal = () => {
                 if (wizardStep < 5) {
                   setWizardStep(wizardStep + 1);
                 } else {
-                  // Track purchase (conversion)
+                  // Track purchase (conversion) and save to API
                   trackPurchase();
-                  setShowCreateWizard(false);
-                  setWizardStep(1);
+                  saveConfiguration();
                 }
               }}
+              disabled={saveStatus.loading}
               className={`px-6 sm:px-8 py-2.5 rounded-lg font-bold transition-all text-sm sm:text-base ${
                 wizardStep === 5
-                  ? 'bg-[#7DD3C0] text-[#2C3E50] hover:bg-[#6BC3B0] shadow-lg'
+                  ? saveStatus.loading
+                    ? 'bg-slate-600 text-slate-400 cursor-wait'
+                    : 'bg-[#7DD3C0] text-[#2C3E50] hover:bg-[#6BC3B0] shadow-lg'
                   : 'bg-[#FFD93D] text-[#2C3E50] hover:bg-[#FFC700] shadow-lg'
-              }`}
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
-              {wizardStep === 5 ? '🛒 Purchase' : 'Continue'}
+              {wizardStep === 5
+                ? saveStatus.loading
+                  ? '💾 Saving...'
+                  : saveStatus.success
+                    ? '✅ Saved!'
+                    : '🛒 Purchase'
+                : 'Continue'}
             </button>
           </div>
         </div>
