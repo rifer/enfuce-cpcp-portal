@@ -188,7 +188,11 @@ async function handleCreateConfiguration(req, res) {
   }
 
   // Normalize currency (all uppercase)
-  configData.currency = configData.currency.toUpperCase();
+  if (configData.currency && typeof configData.currency === 'string') {
+    configData.currency = configData.currency.toUpperCase();
+  } else {
+    configData.currency = 'EUR'; // Default fallback
+  }
 
   // Get or create client
   let clientId = configData.client_id;

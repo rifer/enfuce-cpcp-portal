@@ -33,6 +33,7 @@ lerna-debug.log*
 # Testing
 coverage/
 .nyc_output/
+evals/results/
 
 # Cache
 .cache/

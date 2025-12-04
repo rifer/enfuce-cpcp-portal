@@ -167,6 +167,12 @@ export function transformWizardToAPI(wizardData, clientInfo = {}) {
     return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
   };
 
+  // Helper function to safely convert to uppercase string
+  const toUpperCaseString = (value, defaultValue = 'EUR') => {
+    if (!value || typeof value !== 'string') return defaultValue;
+    return value.toUpperCase();
+  };
+
   // Get card scheme and normalize casing (visa -> Visa, mastercard -> Mastercard)
   const rawScheme = wizardData.scheme || wizardData.card_scheme;
   const cardScheme = capitalizeFirst(rawScheme);
@@ -180,7 +186,7 @@ export function transformWizardToAPI(wizardData, clientInfo = {}) {
       ? wizardData.formFactor.map(f => f.toLowerCase())
       : (wizardData.form_factors || []).map(f => f.toLowerCase()),
     card_scheme: cardScheme,
-    currency: (wizardData.currency || 'EUR').toUpperCase(),
+    currency: toUpperCaseString(wizardData.currency, 'EUR'),
 
     // Client information
     client_email: clientInfo.email,

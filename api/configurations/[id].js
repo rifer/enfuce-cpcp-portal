@@ -182,8 +182,11 @@ async function handleUpdateConfiguration(req, res, id) {
   }
 
   // Normalize currency if provided
-  if (updateData.currency) {
+  if (updateData.currency && typeof updateData.currency === 'string') {
     updateData.currency = updateData.currency.toUpperCase();
+  } else if (updateData.currency) {
+    // If currency is provided but not a string, remove it (will use existing value)
+    delete updateData.currency;
   }
 
   // Recalculate pricing if financial parameters changed
