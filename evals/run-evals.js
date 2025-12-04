@@ -78,11 +78,14 @@ async function callAIValidationAPI(input, step, conversationHistory = []) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        user_input: input,
-        current_step: { field: step },
-        conversation_history: conversationHistory,
-        program_data: {},
-        provider: AI_PROVIDER
+        provider: AI_PROVIDER,
+        action: 'validate',
+        context: {
+          current_question: { field: step },
+          user_input: input,
+          conversation_history: conversationHistory,
+          collected_data: {}
+        }
       }),
       signal: controller.signal
     });
