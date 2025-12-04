@@ -69,6 +69,9 @@ async function callAIValidationAPI(input, step, conversationHistory = []) {
   const startTime = Date.now();
 
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
     const response = await fetch(`${API_URL}/api/ai-validate`, {
       method: 'POST',
       headers: {
@@ -80,11 +83,23 @@ async function callAIValidationAPI(input, step, conversationHistory = []) {
         conversation_history: conversationHistory,
         program_data: {},
         provider: AI_PROVIDER
-      })
+      }),
+      signal: controller.signal
     });
 
+    clearTimeout(timeout);
+
     const duration = Date.now() - startTime;
-    const data = await response.json();
+
+    // Handle non-JSON responses gracefully
+    let data;
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      data = await response.json();
+    } else {
+      const text = await response.text();
+      data = { error: 'Non-JSON response', body: text.substring(0, 200) };
+    }
 
     return {
       success: response.ok,
@@ -93,10 +108,23 @@ async function callAIValidationAPI(input, step, conversationHistory = []) {
       status: response.status
     };
   } catch (error) {
+    const duration = Date.now() - startTime;
+
+    // Provide more detailed error messages
+    let errorMessage = error.message;
+    if (error.name === 'AbortError') {
+      errorMessage = 'Request timeout (30s) - API may be unavailable';
+    } else if (error.code === 'ECONNREFUSED') {
+      errorMessage = 'Connection refused - API not available at ' + API_URL;
+    } else if (error.code === 'ENOTFOUND') {
+      errorMessage = 'API URL not found: ' + API_URL;
+    }
+
     return {
       success: false,
-      error: error.message,
-      duration: Date.now() - startTime
+      error: errorMessage,
+      duration,
+      originalError: error.code || error.name
     };
   }
 }
@@ -335,6 +363,38 @@ function saveResults() {
 }
 
 /**
+ * Check if API is available
+ */
+async function checkAPIHealth() {
+  console.log(`${colors.gray}Checking API health...${colors.reset}`);
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+    const response = await fetch(`${API_URL}/api/configurations/schema`, {
+      method: 'GET',
+      signal: controller.signal
+    });
+
+    clearTimeout(timeout);
+
+    if (response.ok) {
+      console.log(`${colors.green}✓ API is available${colors.reset}`);
+      return true;
+    } else {
+      console.log(`${colors.yellow}⚠ API returned status ${response.status}${colors.reset}`);
+      return false;
+    }
+  } catch (error) {
+    console.log(`${colors.red}✗ API health check failed: ${error.message}${colors.reset}`);
+    console.log(`${colors.yellow}API URL: ${API_URL}${colors.reset}`);
+    console.log(`${colors.yellow}Make sure the API is running and accessible${colors.reset}`);
+    return false;
+  }
+}
+
+/**
  * Main execution
  */
 async function main() {
@@ -342,6 +402,14 @@ async function main() {
   console.log(`API URL: ${API_URL}`);
   console.log(`AI Provider: ${AI_PROVIDER}`);
   console.log('='.repeat(60));
+
+  // Check API health before running tests
+  const apiAvailable = await checkAPIHealth();
+  if (!apiAvailable) {
+    console.log(`\n${colors.red}ERROR: API is not available. Cannot run EVALS.${colors.reset}`);
+    console.log(`${colors.yellow}Tip: Check that API_URL is correct and the service is deployed${colors.reset}`);
+    process.exit(1);
+  }
 
   const testData = loadTestCases();
   const testCases = testData.test_cases;
