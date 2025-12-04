@@ -346,20 +346,34 @@ function printSummary() {
  * Save results to JSON file
  */
 function saveResults() {
-  if (!fs.existsSync(OUTPUT_DIR)) {
-    fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+  try {
+    // Ensure output directory exists
+    if (!fs.existsSync(OUTPUT_DIR)) {
+      console.log(`${colors.gray}Creating results directory: ${OUTPUT_DIR}${colors.reset}`);
+      fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+    }
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `eval-results-${timestamp}.json`;
+    const filepath = path.join(OUTPUT_DIR, filename);
+
+    // Save timestamped results
+    fs.writeFileSync(filepath, JSON.stringify(results, null, 2));
+    console.log(`${colors.cyan}Results saved to: ${filepath}${colors.reset}`);
+
+    // Also save latest.json for easy access (this is what CI/CD reads)
+    const latestPath = path.join(OUTPUT_DIR, 'latest.json');
+    fs.writeFileSync(latestPath, JSON.stringify(results, null, 2));
+    console.log(`${colors.cyan}Latest results saved to: ${latestPath}${colors.reset}`);
+
+    return true;
+  } catch (error) {
+    console.error(`${colors.red}ERROR: Failed to save results:${colors.reset}`, error.message);
+    console.error(`${colors.red}Output directory: ${OUTPUT_DIR}${colors.reset}`);
+    console.error(`${colors.red}Current directory: ${process.cwd()}${colors.reset}`);
+    console.error(error.stack);
+    return false;
   }
-
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const filename = `eval-results-${timestamp}.json`;
-  const filepath = path.join(OUTPUT_DIR, filename);
-
-  fs.writeFileSync(filepath, JSON.stringify(results, null, 2));
-  console.log(`\n${colors.cyan}Results saved to: ${filepath}${colors.reset}`);
-
-  // Also save latest.json for easy access
-  const latestPath = path.join(OUTPUT_DIR, 'latest.json');
-  fs.writeFileSync(latestPath, JSON.stringify(results, null, 2));
 }
 
 /**
@@ -410,10 +424,21 @@ async function main() {
     console.log(`${colors.yellow}Tip: Check that API_URL is correct and the service is deployed${colors.reset}`);
 
     // Save error results so CI/CD can report the issue
+    console.log(`\n${colors.cyan}Saving error results...${colors.reset}`);
     results.errors = 1;
+    results.total = 0;
+    results.passed = 0;
+    results.failed = 0;
     results.metrics.fatal_error = 'API not available';
     results.metrics.api_url = API_URL;
-    saveResults();
+    results.metrics.validation_accuracy = 0;
+
+    const saved = saveResults();
+    if (saved) {
+      console.log(`${colors.green}✓ Error results saved successfully${colors.reset}`);
+    } else {
+      console.log(`${colors.red}✗ Failed to save error results${colors.reset}`);
+    }
 
     process.exit(1);
   }
