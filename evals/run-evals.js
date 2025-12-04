@@ -393,12 +393,22 @@ async function checkAPIHealth() {
 
     clearTimeout(timeout);
 
+    // Accept 200 (OK) or 401 (Unauthorized) as "API is available"
+    // 401 means the API is running, just requires auth (which is fine)
     if (response.ok) {
-      console.log(`${colors.green}✓ API is available${colors.reset}`);
+      console.log(`${colors.green}✓ API is available (status ${response.status})${colors.reset}`);
       return true;
-    } else {
-      console.log(`${colors.yellow}⚠ API returned status ${response.status}${colors.reset}`);
+    } else if (response.status === 401) {
+      console.log(`${colors.green}✓ API is available (requires auth, but responding)${colors.reset}`);
+      return true;
+    } else if (response.status >= 500) {
+      // 5xx errors mean server is having issues
+      console.log(`${colors.red}✗ API returned server error ${response.status}${colors.reset}`);
       return false;
+    } else {
+      // 4xx errors (except 401) - API is up but something is wrong
+      console.log(`${colors.yellow}⚠ API returned status ${response.status} (treating as available)${colors.reset}`);
+      return true; // API is responding, so let's try to run tests
     }
   } catch (error) {
     console.log(`${colors.red}✗ API health check failed: ${error.message}${colors.reset}`);
