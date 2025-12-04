@@ -2,7 +2,11 @@
  * GET /api/configurations/schema
  * Returns the schema/possible configurations for card programs
  * This helps clients understand what fields are available and their constraints
+ *
+ * Now database-driven: Fetches available options from lookup tables
  */
+
+import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient.js';
 
 export default async function handler(req, res) {
   // Enable CORS
@@ -19,6 +23,66 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Fallback options if database query fails
+    const fallbackOptions = {
+      cardSchemes: ['Visa', 'Mastercard'],
+      programTypes: ['corporate', 'fleet', 'meal', 'travel', 'gift', 'transport'],
+      fundingModels: ['prepaid', 'debit', 'credit', 'revolving'],
+      formFactors: ['physical', 'virtual', 'tokenized'],
+      currencies: ['EUR', 'USD', 'GBP', 'SEK'],
+      statuses: ['draft', 'pending_approval', 'active', 'suspended', 'archived']
+    };
+
+    let dynamicOptions = fallbackOptions;
+
+    // Fetch dynamic options from database if available
+    if (isSupabaseConfigured()) {
+      try {
+        const [
+          { data: cardSchemes },
+          { data: programTypes },
+          { data: fundingModels },
+          { data: formFactors },
+          { data: currencies },
+          { data: statuses }
+        ] = await Promise.all([
+          supabase.from('card_schemes').select('code, display_name').eq('is_active', true).order('sort_order'),
+          supabase.from('program_types').select('code, display_name').eq('is_active', true).order('sort_order'),
+          supabase.from('funding_models').select('code, display_name').eq('is_active', true).order('sort_order'),
+          supabase.from('form_factors').select('code, display_name').eq('is_active', true).order('sort_order'),
+          supabase.from('currencies').select('code, display_name, symbol').eq('is_active', true).order('sort_order'),
+          supabase.from('configuration_statuses').select('code, display_name').eq('is_active', true).order('sort_order')
+        ]);
+
+        // Use database values if available, otherwise fallback
+        dynamicOptions = {
+          cardSchemes: cardSchemes?.map(s => s.code) || fallbackOptions.cardSchemes,
+          cardSchemesWithLabels: cardSchemes || [],
+          programTypes: programTypes?.map(t => t.code) || fallbackOptions.programTypes,
+          programTypesWithLabels: programTypes || [],
+          fundingModels: fundingModels?.map(f => f.code) || fallbackOptions.fundingModels,
+          fundingModelsWithLabels: fundingModels || [],
+          formFactors: formFactors?.map(f => f.code) || fallbackOptions.formFactors,
+          formFactorsWithLabels: formFactors || [],
+          currencies: currencies?.map(c => c.code) || fallbackOptions.currencies,
+          currenciesWithLabels: currencies || [],
+          statuses: statuses?.map(s => s.code) || fallbackOptions.statuses,
+          statusesWithLabels: statuses || []
+        };
+
+        console.log('✅ Schema loaded from database - includes:', {
+          cardSchemes: dynamicOptions.cardSchemes.length,
+          programTypes: dynamicOptions.programTypes.length,
+          fundingModels: dynamicOptions.fundingModels.length
+        });
+      } catch (dbError) {
+        console.warn('⚠️  Database query failed, using fallback options:', dbError.message);
+        // Continue with fallback options
+      }
+    } else {
+      console.warn('⚠️  Supabase not configured, using fallback options');
+    }
+
     const schema = {
       program_name: {
         type: 'string',
@@ -30,20 +94,23 @@ export default async function handler(req, res) {
       program_type: {
         type: 'enum',
         required: true,
-        options: ['corporate', 'fleet', 'meal', 'travel', 'gift', 'transport'],
+        options: dynamicOptions.programTypes,
+        optionsWithLabels: dynamicOptions.programTypesWithLabels || [],
         description: 'Type of card program'
       },
       status: {
         type: 'enum',
         required: false,
         default: 'draft',
-        options: ['draft', 'pending_approval', 'active', 'suspended', 'archived'],
+        options: dynamicOptions.statuses,
+        optionsWithLabels: dynamicOptions.statusesWithLabels || [],
         description: 'Current status of the program'
       },
       funding_model: {
         type: 'enum',
         required: true,
-        options: ['prepaid', 'debit', 'credit', 'revolving'],
+        options: dynamicOptions.fundingModels,
+        optionsWithLabels: dynamicOptions.fundingModelsWithLabels || [],
         description: 'How the card is funded'
       },
       form_factors: {
@@ -51,21 +118,24 @@ export default async function handler(req, res) {
         required: true,
         items: {
           type: 'enum',
-          options: ['physical', 'virtual', 'tokenized']
+          options: dynamicOptions.formFactors,
+          optionsWithLabels: dynamicOptions.formFactorsWithLabels || []
         },
         description: 'Card form factors (can select multiple)'
       },
       card_scheme: {
         type: 'enum',
         required: true,
-        options: ['Visa', 'Mastercard'],
+        options: dynamicOptions.cardSchemes,
+        optionsWithLabels: dynamicOptions.cardSchemesWithLabels || [],
         description: 'Card payment network'
       },
       currency: {
         type: 'enum',
         required: true,
         default: 'EUR',
-        options: ['EUR', 'USD', 'GBP', 'SEK'],
+        options: dynamicOptions.currencies,
+        optionsWithLabels: dynamicOptions.currenciesWithLabels || [],
         description: 'Currency for the card program'
       },
       estimated_cards: {

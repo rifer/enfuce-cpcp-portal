@@ -1,0 +1,130 @@
+name: Run EVALS on Deployment
+
+on:
+  # Run on every deployment
+  deployment_status:
+
+  # Run on pull requests
+  pull_request:
+    branches: [ main, master ]
+
+  # Run on push to main
+  push:
+    branches: [ main, master ]
+
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      api_url:
+        description: 'API URL to test against'
+        required: false
+        default: ''
+      ai_provider:
+        description: 'AI provider to use (local/anthropic/openai)'
+        required: false
+        default: 'local'
+
+jobs:
+  run-evals:
+    name: Run Conversational Wizard EVALS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Wait for deployment (if triggered by deployment)
+        if: github.event_name == 'deployment_status'
+        run: |
+          echo "Waiting 30 seconds for deployment to be ready..."
+          sleep 30
+
+      - name: Determine API URL
+        id: api_url
+        run: |
+          if [ "${{ github.event_name }}" == "deployment_status" ]; then
+            echo "url=${{ github.event.deployment_status.target_url }}" >> $GITHUB_OUTPUT
+          elif [ -n "${{ github.event.inputs.api_url }}" ]; then
+            echo "url=${{ github.event.inputs.api_url }}" >> $GITHUB_OUTPUT
+          elif [ -n "${{ secrets.VERCEL_URL }}" ]; then
+            echo "url=${{ secrets.VERCEL_URL }}" >> $GITHUB_OUTPUT
+          else
+            echo "url=http://localhost:5173" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run EVALS
+        env:
+          API_URL: ${{ steps.api_url.outputs.url }}
+          AI_PROVIDER: ${{ github.event.inputs.ai_provider || 'local' }}
+        run: |
+          echo "🧪 Running EVALS against: $API_URL"
+          echo "🤖 AI Provider: $AI_PROVIDER"
+          npm run evals
+
+      - name: Upload EVALS results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: evals-results
+          path: evals/results/latest.json
+          retention-days: 30
+
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const results = JSON.parse(fs.readFileSync('evals/results/latest.json', 'utf8'));
+
+            const body = `## 🧪 EVALS Results
+
+            **Overall:** ${results.passed}/${results.total} tests passed (${results.metrics.validation_accuracy.toFixed(1)}%)
+
+            ### Metrics
+            - ⏱️ Avg Response Time: ${results.metrics.avg_response_time.toFixed(0)}ms
+            - 🔤 Typo Correction: ${results.metrics.typo_correction_rate.toFixed(1)}%
+            - ⌨️ Command Recognition: ${results.metrics.command_recognition_rate.toFixed(1)}%
+            - 🗣️ Natural Language: ${results.metrics.natural_language_understanding.toFixed(1)}%
+
+            ### By Category
+            ${Object.entries(results.by_category).map(([cat, stats]) =>
+              `- ${cat}: ${stats.passed}/${stats.total} (${((stats.passed/stats.total)*100).toFixed(0)}%)`
+            ).join('\n')}
+
+            ${results.failed > 0 ? '⚠️ Some tests failed. Check the artifacts for details.' : '✅ All tests passed!'}
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+      - name: Fail if accuracy below threshold
+        if: always()
+        run: |
+          ACCURACY=$(node -e "
+            const fs = require('fs');
+            const results = JSON.parse(fs.readFileSync('evals/results/latest.json', 'utf8'));
+            console.log(results.metrics.validation_accuracy);
+          ")
+
+          echo "Validation Accuracy: $ACCURACY%"
+
+          if (( $(echo "$ACCURACY < 85" | bc -l) )); then
+            echo "❌ EVALS accuracy ($ACCURACY%) is below threshold (85%)"
+            exit 1
+          else
+            echo "✅ EVALS accuracy ($ACCURACY%) meets threshold"
+          fi
