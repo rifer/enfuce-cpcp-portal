@@ -408,6 +408,13 @@ async function main() {
   if (!apiAvailable) {
     console.log(`\n${colors.red}ERROR: API is not available. Cannot run EVALS.${colors.reset}`);
     console.log(`${colors.yellow}Tip: Check that API_URL is correct and the service is deployed${colors.reset}`);
+
+    // Save error results so CI/CD can report the issue
+    results.errors = 1;
+    results.metrics.fatal_error = 'API not available';
+    results.metrics.api_url = API_URL;
+    saveResults();
+
     process.exit(1);
   }
 
@@ -453,5 +460,17 @@ async function main() {
 
 main().catch(error => {
   console.error(`${colors.red}Fatal error:${colors.reset}`, error);
+  console.error(error.stack);
+
+  // Save partial results even on fatal error
+  try {
+    results.metrics.fatal_error = error.message;
+    results.metrics.error_stack = error.stack;
+    saveResults();
+    console.log(`${colors.yellow}Partial results saved despite fatal error${colors.reset}`);
+  } catch (saveError) {
+    console.error(`${colors.red}Could not save results:${colors.reset}`, saveError.message);
+  }
+
   process.exit(1);
 });
