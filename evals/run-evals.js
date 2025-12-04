@@ -177,7 +177,13 @@ async function runTestCase(testCase) {
         expected: 'success',
         actual: apiResult.status || 'error'
       });
-      console.log(`${colors.red}  ✗ API call failed${colors.reset}`);
+      console.log(`${colors.red}  ✗ API call failed: ${result.error}${colors.reset}`);
+      if (apiResult.status) {
+        console.log(`${colors.gray}    Status: ${apiResult.status}${colors.reset}`);
+      }
+      if (apiResult.data && apiResult.data.error) {
+        console.log(`${colors.gray}    Error: ${apiResult.data.error}${colors.reset}`);
+      }
       return result;
     }
 
@@ -452,6 +458,11 @@ async function main() {
 
     process.exit(1);
   }
+
+  // Give serverless functions time to warm up
+  console.log(`\n${colors.gray}Waiting 5 seconds for API to warm up...${colors.reset}`);
+  await new Promise(resolve => setTimeout(resolve, 5000));
+  console.log(`${colors.green}✓ Ready to run tests${colors.reset}`);
 
   const testData = loadTestCases();
   const testCases = testData.test_cases;
