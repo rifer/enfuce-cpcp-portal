@@ -177,7 +177,13 @@ async function runTestCase(testCase) {
         expected: 'success',
         actual: apiResult.status || 'error'
       });
-      console.log(`${colors.red}  ✗ API call failed${colors.reset}`);
+      console.log(`${colors.red}  ✗ API call failed: ${result.error}${colors.reset}`);
+      if (apiResult.status) {
+        console.log(`${colors.gray}    Status: ${apiResult.status}${colors.reset}`);
+      }
+      if (apiResult.data && apiResult.data.error) {
+        console.log(`${colors.gray}    Error: ${apiResult.data.error}${colors.reset}`);
+      }
       return result;
     }
 
@@ -346,20 +352,34 @@ function printSummary() {
  * Save results to JSON file
  */
 function saveResults() {
-  if (!fs.existsSync(OUTPUT_DIR)) {
-    fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+  try {
+    // Ensure output directory exists
+    if (!fs.existsSync(OUTPUT_DIR)) {
+      console.log(`${colors.gray}Creating results directory: ${OUTPUT_DIR}${colors.reset}`);
+      fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+    }
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `eval-results-${timestamp}.json`;
+    const filepath = path.join(OUTPUT_DIR, filename);
+
+    // Save timestamped results
+    fs.writeFileSync(filepath, JSON.stringify(results, null, 2));
+    console.log(`${colors.cyan}Results saved to: ${filepath}${colors.reset}`);
+
+    // Also save latest.json for easy access (this is what CI/CD reads)
+    const latestPath = path.join(OUTPUT_DIR, 'latest.json');
+    fs.writeFileSync(latestPath, JSON.stringify(results, null, 2));
+    console.log(`${colors.cyan}Latest results saved to: ${latestPath}${colors.reset}`);
+
+    return true;
+  } catch (error) {
+    console.error(`${colors.red}ERROR: Failed to save results:${colors.reset}`, error.message);
+    console.error(`${colors.red}Output directory: ${OUTPUT_DIR}${colors.reset}`);
+    console.error(`${colors.red}Current directory: ${process.cwd()}${colors.reset}`);
+    console.error(error.stack);
+    return false;
   }
-
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const filename = `eval-results-${timestamp}.json`;
-  const filepath = path.join(OUTPUT_DIR, filename);
-
-  fs.writeFileSync(filepath, JSON.stringify(results, null, 2));
-  console.log(`\n${colors.cyan}Results saved to: ${filepath}${colors.reset}`);
-
-  // Also save latest.json for easy access
-  const latestPath = path.join(OUTPUT_DIR, 'latest.json');
-  fs.writeFileSync(latestPath, JSON.stringify(results, null, 2));
 }
 
 /**
@@ -379,12 +399,22 @@ async function checkAPIHealth() {
 
     clearTimeout(timeout);
 
+    // Accept 200 (OK) or 401 (Unauthorized) as "API is available"
+    // 401 means the API is running, just requires auth (which is fine)
     if (response.ok) {
-      console.log(`${colors.green}✓ API is available${colors.reset}`);
+      console.log(`${colors.green}✓ API is available (status ${response.status})${colors.reset}`);
       return true;
-    } else {
-      console.log(`${colors.yellow}⚠ API returned status ${response.status}${colors.reset}`);
+    } else if (response.status === 401) {
+      console.log(`${colors.green}✓ API is available (requires auth, but responding)${colors.reset}`);
+      return true;
+    } else if (response.status >= 500) {
+      // 5xx errors mean server is having issues
+      console.log(`${colors.red}✗ API returned server error ${response.status}${colors.reset}`);
       return false;
+    } else {
+      // 4xx errors (except 401) - API is up but something is wrong
+      console.log(`${colors.yellow}⚠ API returned status ${response.status} (treating as available)${colors.reset}`);
+      return true; // API is responding, so let's try to run tests
     }
   } catch (error) {
     console.log(`${colors.red}✗ API health check failed: ${error.message}${colors.reset}`);
@@ -408,8 +438,31 @@ async function main() {
   if (!apiAvailable) {
     console.log(`\n${colors.red}ERROR: API is not available. Cannot run EVALS.${colors.reset}`);
     console.log(`${colors.yellow}Tip: Check that API_URL is correct and the service is deployed${colors.reset}`);
+
+    // Save error results so CI/CD can report the issue
+    console.log(`\n${colors.cyan}Saving error results...${colors.reset}`);
+    results.errors = 1;
+    results.total = 0;
+    results.passed = 0;
+    results.failed = 0;
+    results.metrics.fatal_error = 'API not available';
+    results.metrics.api_url = API_URL;
+    results.metrics.validation_accuracy = 0;
+
+    const saved = saveResults();
+    if (saved) {
+      console.log(`${colors.green}✓ Error results saved successfully${colors.reset}`);
+    } else {
+      console.log(`${colors.red}✗ Failed to save error results${colors.reset}`);
+    }
+
     process.exit(1);
   }
+
+  // Give serverless functions time to warm up
+  console.log(`\n${colors.gray}Waiting 5 seconds for API to warm up...${colors.reset}`);
+  await new Promise(resolve => setTimeout(resolve, 5000));
+  console.log(`${colors.green}✓ Ready to run tests${colors.reset}`);
 
   const testData = loadTestCases();
   const testCases = testData.test_cases;
@@ -453,5 +506,17 @@ async function main() {
 
 main().catch(error => {
   console.error(`${colors.red}Fatal error:${colors.reset}`, error);
+  console.error(error.stack);
+
+  // Save partial results even on fatal error
+  try {
+    results.metrics.fatal_error = error.message;
+    results.metrics.error_stack = error.stack;
+    saveResults();
+    console.log(`${colors.yellow}Partial results saved despite fatal error${colors.reset}`);
+  } catch (saveError) {
+    console.error(`${colors.red}Could not save results:${colors.reset}`, saveError.message);
+  }
+
   process.exit(1);
 });

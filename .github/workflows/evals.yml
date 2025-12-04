@@ -51,12 +51,23 @@ jobs:
           # Wait up to 2 minutes for deployment to be ready
           for i in {1..12}; do
             echo "Attempt $i/12..."
-            if curl -sf "${{ github.event.deployment_status.target_url }}" > /dev/null; then
-              echo "✓ Deployment is ready!"
+            # Check if we can connect (any HTTP response means deployed)
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${{ github.event.deployment_status.target_url }}" || echo "000")
+            echo "  Response: $HTTP_CODE"
+
+            # Any 2xx, 3xx, 4xx response means the site is deployed and responding
+            # Only fail on 000 (connection failed) or 5xx (server error)
+            if [ "$HTTP_CODE" != "000" ] && [ "$HTTP_CODE" -lt 500 ]; then
+              echo "✓ Deployment is ready! (HTTP $HTTP_CODE)"
               break
             fi
-            echo "Deployment not ready yet, waiting 10 seconds..."
-            sleep 10
+
+            if [ $i -eq 12 ]; then
+              echo "⚠️ Deployment check timed out, but continuing anyway..."
+            else
+              echo "  Deployment not ready yet, waiting 10 seconds..."
+              sleep 10
+            fi
           done
 
       - name: Determine API URL
@@ -95,6 +106,7 @@ jobs:
           name: evals-results
           path: evals/results/latest.json
           retention-days: 30
+          if-no-files-found: warn
 
       - name: Comment PR with results
         if: github.event_name == 'pull_request' && always()
@@ -102,7 +114,32 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const results = JSON.parse(fs.readFileSync('evals/results/latest.json', 'utf8'));
+            const resultsPath = 'evals/results/latest.json';
+
+            // Check if results file exists
+            if (!fs.existsSync(resultsPath)) {
+              const body = `## 🧪 EVALS Results
+
+              ⚠️ **EVALS did not complete successfully**
+
+              The EVALS test suite failed to run or did not generate results.
+              This could be due to:
+              - API not being available yet
+              - Network connectivity issues
+              - EVALS script error
+
+              Check the workflow logs for details.`;
+
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body
+              });
+              return;
+            }
+
+            const results = JSON.parse(fs.readFileSync(resultsPath, 'utf8'));
 
             const body = `## 🧪 EVALS Results
 
@@ -132,9 +169,19 @@ jobs:
       - name: Fail if accuracy below threshold
         if: always()
         run: |
+          RESULTS_FILE="evals/results/latest.json"
+
+          # Check if results file exists
+          if [ ! -f "$RESULTS_FILE" ]; then
+            echo "❌ EVALS results file not found at $RESULTS_FILE"
+            echo "This likely means the EVALS did not complete successfully."
+            echo "Check the 'Run EVALS' step logs for errors."
+            exit 1
+          fi
+
           ACCURACY=$(node -e "
             const fs = require('fs');
-            const results = JSON.parse(fs.readFileSync('evals/results/latest.json', 'utf8'));
+            const results = JSON.parse(fs.readFileSync('$RESULTS_FILE', 'utf8'));
             console.log(results.metrics.validation_accuracy);
           ")
 
