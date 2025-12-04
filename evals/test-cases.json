@@ -1,0 +1,337 @@
+{
+  "version": "1.0.0",
+  "description": "Test cases for conversational wizard AI validation",
+  "test_cases": [
+    {
+      "id": "greeting-1",
+      "category": "greetings",
+      "step": "program_name",
+      "input": "hey, how are you?",
+      "expected_validation": false,
+      "expected_command": "greeting",
+      "expected_response_contains": ["happy to help", "program name"],
+      "description": "Should recognize greeting and redirect to question"
+    },
+    {
+      "id": "greeting-2",
+      "category": "greetings",
+      "step": "program_type",
+      "input": "hello there!",
+      "expected_validation": false,
+      "expected_command": "greeting",
+      "expected_response_contains": ["card program type"],
+      "description": "Greeting in middle of flow"
+    },
+    {
+      "id": "name-valid-1",
+      "category": "validation",
+      "step": "program_name",
+      "input": "Corporate Travel Card",
+      "expected_validation": true,
+      "expected_value": "Corporate Travel Card",
+      "description": "Valid program name"
+    },
+    {
+      "id": "name-valid-2",
+      "category": "validation",
+      "step": "program_name",
+      "input": "My company's fleet card program",
+      "expected_validation": true,
+      "expected_value": "My company's fleet card program",
+      "description": "Natural language program name"
+    },
+    {
+      "id": "name-too-short",
+      "category": "validation",
+      "step": "program_name",
+      "input": "AB",
+      "expected_validation": false,
+      "expected_response_contains": ["at least 3 characters", "longer"],
+      "description": "Too short name rejection"
+    },
+    {
+      "id": "type-exact-match",
+      "category": "validation",
+      "step": "program_type",
+      "input": "corporate",
+      "expected_validation": true,
+      "expected_value": "corporate",
+      "description": "Exact match for program type"
+    },
+    {
+      "id": "type-natural-language",
+      "category": "validation",
+      "step": "program_type",
+      "input": "This is for our company's employees",
+      "expected_validation": true,
+      "expected_value": "corporate",
+      "description": "Natural language → corporate"
+    },
+    {
+      "id": "type-fleet-variations",
+      "category": "validation",
+      "step": "program_type",
+      "input": "fuel cards for our trucks",
+      "expected_validation": true,
+      "expected_value": "fleet",
+      "description": "Natural language → fleet"
+    },
+    {
+      "id": "type-meal-variations",
+      "category": "validation",
+      "step": "program_type",
+      "input": "lunch vouchers",
+      "expected_validation": true,
+      "expected_value": "meal",
+      "description": "Natural language → meal"
+    },
+    {
+      "id": "type-invalid",
+      "category": "validation",
+      "step": "program_type",
+      "input": "something weird",
+      "expected_validation": false,
+      "expected_response_contains": ["didn't understand", "choose from"],
+      "description": "Invalid program type"
+    },
+    {
+      "id": "funding-exact",
+      "category": "validation",
+      "step": "funding_model",
+      "input": "prepaid",
+      "expected_validation": true,
+      "expected_value": "prepaid",
+      "description": "Exact funding model match"
+    },
+    {
+      "id": "funding-natural",
+      "category": "validation",
+      "step": "funding_model",
+      "input": "we want to preload the cards",
+      "expected_validation": true,
+      "expected_value": "prepaid",
+      "description": "Natural language → prepaid"
+    },
+    {
+      "id": "form-factor-single",
+      "category": "validation",
+      "step": "form_factor",
+      "input": "physical",
+      "expected_validation": true,
+      "expected_value": ["physical"],
+      "description": "Single form factor"
+    },
+    {
+      "id": "form-factor-all-keyword",
+      "category": "validation",
+      "step": "form_factor",
+      "input": "all",
+      "expected_validation": true,
+      "expected_value": ["physical", "virtual", "tokenized"],
+      "description": "'all' keyword selects all options"
+    },
+    {
+      "id": "form-factor-all-natural",
+      "category": "validation",
+      "step": "form_factor",
+      "input": "we want all of them",
+      "expected_validation": true,
+      "expected_value": ["physical", "virtual", "tokenized"],
+      "description": "Natural 'all' → all options"
+    },
+    {
+      "id": "form-factor-multiple-comma",
+      "category": "validation",
+      "step": "form_factor",
+      "input": "physical, virtual",
+      "expected_validation": true,
+      "expected_value": ["physical", "virtual"],
+      "description": "Comma-separated multiple selection"
+    },
+    {
+      "id": "form-factor-multiple-and",
+      "category": "validation",
+      "step": "form_factor",
+      "input": "physical and tokenized",
+      "expected_validation": true,
+      "expected_value": ["physical", "tokenized"],
+      "description": "'and' separator for multiple"
+    },
+    {
+      "id": "scheme-exact",
+      "category": "validation",
+      "step": "card_scheme",
+      "input": "Visa",
+      "expected_validation": true,
+      "expected_value": "Visa",
+      "description": "Exact card scheme"
+    },
+    {
+      "id": "scheme-case-insensitive",
+      "category": "validation",
+      "step": "card_scheme",
+      "input": "visa",
+      "expected_validation": true,
+      "expected_value": "Visa",
+      "description": "Case-insensitive match"
+    },
+    {
+      "id": "scheme-typo",
+      "category": "typo_correction",
+      "step": "card_scheme",
+      "input": "viza",
+      "expected_validation": true,
+      "expected_value": "Visa",
+      "expected_response_contains": ["Visa"],
+      "description": "Typo correction: viza → Visa"
+    },
+    {
+      "id": "scheme-typo-2",
+      "category": "typo_correction",
+      "step": "card_scheme",
+      "input": "masterard",
+      "expected_validation": true,
+      "expected_value": "Mastercard",
+      "description": "Typo correction: masterard → Mastercard"
+    },
+    {
+      "id": "currency-exact",
+      "category": "validation",
+      "step": "currency",
+      "input": "EUR",
+      "expected_validation": true,
+      "expected_value": "EUR",
+      "description": "Exact currency code"
+    },
+    {
+      "id": "currency-name",
+      "category": "validation",
+      "step": "currency",
+      "input": "euros",
+      "expected_validation": true,
+      "expected_value": "EUR",
+      "description": "Currency name → code"
+    },
+    {
+      "id": "currency-natural",
+      "category": "validation",
+      "step": "currency",
+      "input": "we're based in Sweden",
+      "expected_validation": true,
+      "expected_value": "SEK",
+      "description": "Location mention → currency"
+    },
+    {
+      "id": "number-exact",
+      "category": "validation",
+      "step": "estimated_cards",
+      "input": "500",
+      "expected_validation": true,
+      "expected_value": 500,
+      "description": "Exact number"
+    },
+    {
+      "id": "number-with-text",
+      "category": "validation",
+      "step": "estimated_cards",
+      "input": "about 500 cards",
+      "expected_validation": true,
+      "expected_value": 500,
+      "description": "Number extraction from text"
+    },
+    {
+      "id": "number-natural-language",
+      "category": "validation",
+      "step": "estimated_cards",
+      "input": "we have around 50 employees",
+      "expected_validation": true,
+      "expected_value": 50,
+      "description": "Natural language number"
+    },
+    {
+      "id": "number-commas",
+      "category": "validation",
+      "step": "estimated_cards",
+      "input": "2,000",
+      "expected_validation": true,
+      "expected_value": 2000,
+      "description": "Number with comma separator"
+    },
+    {
+      "id": "command-back",
+      "category": "commands",
+      "step": "funding_model",
+      "input": "back",
+      "expected_validation": false,
+      "expected_command": "back",
+      "description": "Back command"
+    },
+    {
+      "id": "command-help",
+      "category": "commands",
+      "step": "program_type",
+      "input": "help",
+      "expected_validation": false,
+      "expected_command": "help",
+      "expected_response_contains": ["commands", "type"],
+      "description": "Help command"
+    },
+    {
+      "id": "command-summary",
+      "category": "commands",
+      "step": "currency",
+      "input": "summary",
+      "expected_validation": false,
+      "expected_command": "summary",
+      "expected_response_contains": ["program", "far"],
+      "description": "Summary command"
+    },
+    {
+      "id": "command-skip",
+      "category": "commands",
+      "step": "daily_limit",
+      "input": "skip",
+      "expected_validation": false,
+      "expected_command": "skip",
+      "description": "Skip command"
+    },
+    {
+      "id": "correction-1",
+      "category": "corrections",
+      "step": "program_type",
+      "input": "actually, I meant fleet",
+      "expected_validation": true,
+      "expected_value": "fleet",
+      "expected_response_contains": ["fleet"],
+      "description": "User self-correction"
+    },
+    {
+      "id": "question-about-option",
+      "category": "questions",
+      "step": "funding_model",
+      "input": "what's the difference between prepaid and debit?",
+      "expected_validation": false,
+      "expected_command": "question",
+      "expected_response_contains": ["prepaid", "debit"],
+      "description": "Question about options"
+    },
+    {
+      "id": "math-expression",
+      "category": "math",
+      "step": "daily_limit",
+      "input": "500 + 200",
+      "expected_validation": true,
+      "expected_value": 700,
+      "description": "Math expression evaluation"
+    },
+    {
+      "id": "math-with-text",
+      "category": "math",
+      "step": "monthly_limit",
+      "input": "daily limit times 30, so 500 * 30",
+      "expected_validation": true,
+      "expected_value": 15000,
+      "description": "Math with context"
+    }
+  ]
+}
