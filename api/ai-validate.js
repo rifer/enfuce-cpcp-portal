@@ -53,7 +53,8 @@ export default async function handler(req, res) {
         command: commandResult.command,
         command_action: commandResult.action,
         ai_response: commandResult.response,
-        data: commandResult.data
+        data: commandResult.data,
+        validated: false // Commands don't validate the current field
       });
     }
 
@@ -109,6 +110,18 @@ function processCommand(input, history, collectedData) {
     };
   }
 
+  // Greeting detection (should not be treated as help)
+  const greetings = ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening', 'greetings'];
+  if (greetings.some(greeting => lowerInput === greeting || lowerInput.startsWith(greeting + ' ') || lowerInput.startsWith(greeting + ','))) {
+    return {
+      is_command: true,
+      command: 'greeting',
+      action: 'acknowledge_greeting',
+      response: 'Hello! 👋 Let\'s create your card program together. Please answer the current question to continue.',
+      data: null
+    };
+  }
+
   // Back/Previous commands
   if (['back', 'previous', 'go back', 'undo'].some(cmd => lowerInput === cmd || lowerInput.includes(cmd))) {
     return {
@@ -129,6 +142,21 @@ function processCommand(input, history, collectedData) {
       action: 'show_collected_data',
       response: summaryText,
       data: collectedData
+    };
+  }
+
+  // Question detection (asking about the current question, not requesting help)
+  const questionWords = ['what', 'which', 'why', 'when', 'where', 'who', 'can i', 'could i', 'should i', 'may i', 'is it', 'are there', 'do i', 'does it'];
+  const isQuestion = lowerInput.endsWith('?') || questionWords.some(qw => lowerInput.startsWith(qw + ' '));
+  const notHelpRequest = !['help', 'explain', 'info', 'what does this mean'].some(cmd => lowerInput.includes(cmd));
+
+  if (isQuestion && notHelpRequest) {
+    return {
+      is_command: true,
+      command: 'question',
+      action: 'answer_question',
+      response: 'That\'s a good question! Let me help: just answer naturally with what feels right. For example, if you\'re not sure about an option, you can type what comes to mind and I\'ll understand. Would you like to give it a try?',
+      data: null
     };
   }
 
@@ -229,41 +257,69 @@ function validateFieldLocally(question, userInput) {
 
   // Number extraction
   if (type === 'number') {
-    const numbers = userInput.match(/\d+/g);
+    // First, try to evaluate math expressions (e.g., "500 + 200", "200*30")
+    const mathMatch = userInput.match(/(\d+(?:,\d{3})*(?:\.\d+)?)\s*([+\-*/×÷])\s*(\d+(?:,\d{3})*(?:\.\d+)?)/);
+    if (mathMatch) {
+      const num1 = parseFloat(mathMatch[1].replace(/,/g, ''));
+      const operator = mathMatch[2].replace('×', '*').replace('÷', '/');
+      const num2 = parseFloat(mathMatch[3].replace(/,/g, ''));
+
+      let result;
+      switch(operator) {
+        case '+': result = num1 + num2; break;
+        case '-': result = num1 - num2; break;
+        case '*': result = num1 * num2; break;
+        case '/': result = num1 / num2; break;
+        default: result = num1;
+      }
+
+      return {
+        validated: true,
+        extracted_value: Math.round(result),
+        confidence: 0.95,
+        ai_response: `Perfect! ${num1} ${operator} ${num2} = ${Math.round(result)}. I'll use ${Math.round(result)}.`,
+        requires_clarification: false
+      };
+    }
+
+    // Second, try to extract numbers (including those with commas like "2,000")
+    const cleanedInput = userInput.replace(/,(\d{3})/g, '$1'); // Remove commas from numbers
+    const numbers = cleanedInput.match(/\d+/g);
+
     if (numbers && numbers.length > 0) {
       const extractedValue = parseInt(numbers[0]);
       return {
         validated: true,
         extracted_value: extractedValue,
         confidence: 0.9,
-        ai_response: `Got it! I'll set it to ${extractedValue}. Shall we continue?`,
+        ai_response: `Got it! I'll set it to ${extractedValue.toLocaleString()}. Shall we continue?`,
         requires_clarification: false
       };
-    } else {
-      // Try word numbers
-      const wordNumbers = {
-        'one': 1, 'two': 2, 'three': 3, 'five': 5, 'ten': 10,
-        'twenty': 20, 'fifty': 50, 'hundred': 100, 'thousand': 1000
-      };
-
-      for (const [word, num] of Object.entries(wordNumbers)) {
-        if (lowerInput.includes(word)) {
-          return {
-            validated: true,
-            extracted_value: num,
-            confidence: 0.7,
-            ai_response: `I understood ${num}. Is that correct?`,
-            requires_clarification: false
-          };
-        }
-      }
-
-      return {
-        validated: false,
-        ai_response: 'I couldn\'t find a number in your response. Could you provide a number?',
-        requires_clarification: true
-      };
     }
+
+    // Try word numbers
+    const wordNumbers = {
+      'one': 1, 'two': 2, 'three': 3, 'five': 5, 'ten': 10,
+      'twenty': 20, 'fifty': 50, 'hundred': 100, 'thousand': 1000
+    };
+
+    for (const [word, num] of Object.entries(wordNumbers)) {
+      if (lowerInput.includes(word)) {
+        return {
+          validated: true,
+          extracted_value: num,
+          confidence: 0.7,
+          ai_response: `I understood ${num}. Is that correct?`,
+          requires_clarification: false
+        };
+      }
+    }
+
+    return {
+      validated: false,
+      ai_response: 'I couldn\'t find a number in your response. Could you provide a number?',
+      requires_clarification: true
+    };
   }
 
   // Select field fuzzy matching
@@ -342,6 +398,20 @@ function validateFieldLocally(question, userInput) {
   // Multi-select
   if (type === 'multi_select' || type === 'multiselect') {
     const options = question.options || [];
+
+    // Check for "all" keyword first - user wants ALL options
+    if (lowerInput === 'all' || lowerInput === 'all of them' || lowerInput === 'all options' ||
+        lowerInput.includes('all of them') || lowerInput.includes('all options') ||
+        (lowerInput.includes('all') && !lowerInput.includes('allow') && options.length > 0)) {
+      return {
+        validated: true,
+        extracted_value: options,
+        confidence: 1.0,
+        ai_response: `Perfect! I'll include all options: ${options.join(', ')}.`,
+        requires_clarification: false
+      };
+    }
+
     const values = lowerInput.split(/[,;]/).map(v => v.trim());
     const extracted = [];
 
@@ -361,10 +431,15 @@ function validateFieldLocally(question, userInput) {
       }
     }
 
-    // Also check for "both", "all", "and"
-    if (lowerInput.includes('both') || lowerInput.includes('all')) {
-      if (lowerInput.includes('physical') && lowerInput.includes('virtual')) {
-        extracted.push('physical', 'virtual');
+    // Also check for "both" when there are exactly 2 items mentioned
+    if ((lowerInput.includes('both') || lowerInput.includes(' and ')) && extracted.length === 0) {
+      // Try to extract from the input
+      for (const [option, keywords] of Object.entries(fuzzyMatches)) {
+        if (keywords.some(kw => lowerInput.includes(kw))) {
+          if (!extracted.includes(option)) {
+            extracted.push(option);
+          }
+        }
       }
     }
 
@@ -380,14 +455,35 @@ function validateFieldLocally(question, userInput) {
 
     return {
       validated: false,
-      ai_response: `I couldn't identify the options. Available: ${options.join(', ')}. Which would you like? (You can choose multiple, separated by commas)`,
+      ai_response: `I couldn't identify the options. Available: ${options.join(', ')}. Which would you like? (You can choose multiple, separated by commas, or say "all")`,
       suggestions: options,
       requires_clarification: true
     };
   }
 
-  // Open text (just return as-is)
+  // Open text with validation
   if (type === 'open_text' || type === 'text') {
+    const minLength = question.minLength || question.min_length || 0;
+    const maxLength = question.maxLength || question.max_length || Infinity;
+
+    // Check minLength
+    if (userInput.length < minLength) {
+      return {
+        validated: false,
+        ai_response: `That's a bit too short. Please provide at least ${minLength} characters. Could you give me a more complete answer?`,
+        requires_clarification: true
+      };
+    }
+
+    // Check maxLength
+    if (userInput.length > maxLength) {
+      return {
+        validated: false,
+        ai_response: `That's a bit too long. Please keep it under ${maxLength} characters. Could you make it shorter?`,
+        requires_clarification: true
+      };
+    }
+
     return {
       validated: true,
       extracted_value: userInput,
