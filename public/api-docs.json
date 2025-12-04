@@ -1,0 +1,990 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Enfuce Card Program Configuration API",
+    "description": "REST API for managing card program configurations. This API allows you to create, retrieve, update, and delete card program configurations, as well as query available configuration options.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Enfuce API Support",
+      "email": "support@enfuce.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "/api",
+      "description": "API Base URL"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Configurations",
+      "description": "Card program configuration management"
+    },
+    {
+      "name": "Schema",
+      "description": "Configuration schema and validation rules"
+    }
+  ],
+  "paths": {
+    "/configurations/schema": {
+      "get": {
+        "tags": ["Schema"],
+        "summary": "Get configuration schema",
+        "description": "Returns the schema describing all available configuration fields, their types, constraints, and validation rules",
+        "responses": {
+          "200": {
+            "description": "Configuration schema retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchemaResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/configurations": {
+      "get": {
+        "tags": ["Configurations"],
+        "summary": "List all configurations",
+        "description": "Retrieve a paginated list of card configurations with optional filtering, sorting, and search",
+        "parameters": [
+          {
+            "name": "client_id",
+            "in": "query",
+            "description": "Filter by client ID",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter by status",
+            "schema": {
+              "type": "string",
+              "enum": ["draft", "pending_approval", "active", "suspended", "archived"]
+            }
+          },
+          {
+            "name": "program_type",
+            "in": "query",
+            "description": "Filter by program type",
+            "schema": {
+              "type": "string",
+              "enum": ["corporate", "fleet", "meal", "travel", "gift", "transport"]
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Full-text search in program name and type",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of results to return (max 100)",
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Number of results to skip",
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Field to sort by",
+            "schema": {
+              "type": "string",
+              "enum": ["created_at", "updated_at", "program_name", "status"],
+              "default": "created_at"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "description": "Sort order",
+            "schema": {
+              "type": "string",
+              "enum": ["asc", "desc"],
+              "default": "desc"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Configurations retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigurationListResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Database query failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Configurations"],
+        "summary": "Create new configuration",
+        "description": "Create a new card program configuration. Client can be specified by ID, or a new client will be created from email.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigurationCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Configuration created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigurationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error - missing or invalid fields",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to create configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/configurations/{id}": {
+      "get": {
+        "tags": ["Configurations"],
+        "summary": "Get configuration by ID",
+        "description": "Retrieve a specific card configuration by its UUID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Configuration UUID",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Configuration retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigurationResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Configuration not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Database query failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Configurations"],
+        "summary": "Update configuration (full)",
+        "description": "Update a card configuration with complete replacement of fields",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Configuration UUID",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigurationUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Configuration updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigurationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Configuration not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to update configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["Configurations"],
+        "summary": "Update configuration (partial)",
+        "description": "Partially update a card configuration with only the fields provided",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Configuration UUID",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigurationUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Configuration updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigurationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Configuration not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to update configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Configurations"],
+        "summary": "Delete configuration",
+        "description": "Delete a card configuration. Use ?soft_delete=true to archive instead of permanent deletion.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Configuration UUID",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "soft_delete",
+            "in": "query",
+            "description": "If true, archives the configuration instead of deleting",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Configuration deleted/archived successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Configuration deleted successfully"
+                    },
+                    "deleted_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Configuration not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to delete configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Configuration": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unique configuration identifier"
+          },
+          "client_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Associated client ID"
+          },
+          "program_name": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 255,
+            "description": "Name of the card program"
+          },
+          "program_type": {
+            "type": "string",
+            "enum": ["corporate", "fleet", "meal", "travel", "gift", "transport"],
+            "description": "Type of card program"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["draft", "pending_approval", "active", "suspended", "archived"],
+            "description": "Current status of the program"
+          },
+          "funding_model": {
+            "type": "string",
+            "enum": ["prepaid", "debit", "credit", "revolving"],
+            "description": "How the card is funded"
+          },
+          "form_factors": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["physical", "virtual", "tokenized"]
+            },
+            "description": "Card form factors"
+          },
+          "card_scheme": {
+            "type": "string",
+            "enum": ["Visa", "Mastercard"],
+            "description": "Card payment network"
+          },
+          "currency": {
+            "type": "string",
+            "enum": ["EUR", "USD", "GBP", "SEK"],
+            "description": "Currency for the card program"
+          },
+          "estimated_cards": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000000,
+            "description": "Estimated number of cards needed"
+          },
+          "daily_limit": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Daily spending limit per card"
+          },
+          "monthly_limit": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Monthly spending limit per card"
+          },
+          "card_design": {
+            "type": "string",
+            "enum": ["corporate", "premium", "ocean", "sunset", "custom"],
+            "description": "Visual design of the card"
+          },
+          "card_color": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$",
+            "description": "Custom card color (hex format)"
+          },
+          "card_background_image": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true,
+            "description": "URL to custom background image"
+          },
+          "mcc_restrictions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9]{4}$"
+            },
+            "description": "Merchant Category Code restrictions"
+          },
+          "country_restrictions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z]{2}$"
+            },
+            "description": "Country restrictions (ISO 3166-1 alpha-2)"
+          },
+          "additional_config": {
+            "type": "object",
+            "properties": {
+              "card_material": {
+                "type": "string",
+                "enum": ["plastic", "metal", "recycled", "biodegradable"]
+              },
+              "aml_provider": {
+                "type": "string",
+                "enum": ["enfuce_standard", "external_provider_a", "external_provider_b"]
+              },
+              "fraud_control_provider": {
+                "type": "string",
+                "enum": ["enfuce_standard", "external_provider_a", "external_provider_b"]
+              },
+              "kyc_level": {
+                "type": "string",
+                "enum": ["basic", "enhanced", "full"]
+              },
+              "chip_type": {
+                "type": "string",
+                "enum": ["emv", "contactless", "dual"]
+              },
+              "expiry_years": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10
+              }
+            },
+            "description": "Additional extensible configuration options"
+          },
+          "pricing": {
+            "type": "object",
+            "properties": {
+              "currency": {
+                "type": "string"
+              },
+              "setup_fee": {
+                "type": "number"
+              },
+              "monthly_fee": {
+                "type": "number"
+              },
+              "card_issuance_fee": {
+                "type": "number"
+              },
+              "additional_fees": {
+                "type": "number"
+              },
+              "total_first_month": {
+                "type": "number"
+              },
+              "monthly_recurring": {
+                "type": "number"
+              }
+            }
+          },
+          "client": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string",
+                "format": "email"
+              },
+              "company_name": {
+                "type": "string",
+                "nullable": true
+              }
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last update timestamp"
+          },
+          "created_by": {
+            "type": "string",
+            "description": "User who created the configuration"
+          }
+        }
+      },
+      "ConfigurationCreateRequest": {
+        "type": "object",
+        "required": ["program_name", "program_type", "funding_model", "form_factors", "card_scheme", "currency"],
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Existing client ID (optional if client_email provided)"
+          },
+          "client_email": {
+            "type": "string",
+            "format": "email",
+            "description": "Client email (will create or find client)"
+          },
+          "client_name": {
+            "type": "string",
+            "description": "Client name (used when creating new client)"
+          },
+          "client_company": {
+            "type": "string",
+            "description": "Client company name (used when creating new client)"
+          },
+          "program_name": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 255
+          },
+          "program_type": {
+            "type": "string",
+            "enum": ["corporate", "fleet", "meal", "travel", "gift", "transport"]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["draft", "pending_approval", "active", "suspended", "archived"],
+            "default": "draft"
+          },
+          "funding_model": {
+            "type": "string",
+            "enum": ["prepaid", "debit", "credit", "revolving"]
+          },
+          "form_factors": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["physical", "virtual", "tokenized"]
+            }
+          },
+          "card_scheme": {
+            "type": "string",
+            "enum": ["Visa", "Mastercard"]
+          },
+          "currency": {
+            "type": "string",
+            "enum": ["EUR", "USD", "GBP", "SEK"]
+          },
+          "estimated_cards": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000000,
+            "default": 100
+          },
+          "daily_limit": {
+            "type": "number",
+            "minimum": 0,
+            "default": 500
+          },
+          "monthly_limit": {
+            "type": "number",
+            "minimum": 0,
+            "default": 5000
+          },
+          "card_design": {
+            "type": "string",
+            "enum": ["corporate", "premium", "ocean", "sunset", "custom"]
+          },
+          "card_color": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          },
+          "card_background_image": {
+            "type": "string",
+            "format": "uri"
+          },
+          "mcc_restrictions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9]{4}$"
+            }
+          },
+          "country_restrictions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z]{2}$"
+            }
+          },
+          "additional_config": {
+            "type": "object"
+          },
+          "created_by": {
+            "type": "string"
+          }
+        }
+      },
+      "ConfigurationUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "program_name": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 255
+          },
+          "program_type": {
+            "type": "string",
+            "enum": ["corporate", "fleet", "meal", "travel", "gift", "transport"]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["draft", "pending_approval", "active", "suspended", "archived"]
+          },
+          "funding_model": {
+            "type": "string",
+            "enum": ["prepaid", "debit", "credit", "revolving"]
+          },
+          "form_factors": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["physical", "virtual", "tokenized"]
+            }
+          },
+          "card_scheme": {
+            "type": "string",
+            "enum": ["Visa", "Mastercard"]
+          },
+          "currency": {
+            "type": "string",
+            "enum": ["EUR", "USD", "GBP", "SEK"]
+          },
+          "estimated_cards": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000000
+          },
+          "daily_limit": {
+            "type": "number",
+            "minimum": 0
+          },
+          "monthly_limit": {
+            "type": "number",
+            "minimum": 0
+          },
+          "card_design": {
+            "type": "string",
+            "enum": ["corporate", "premium", "ocean", "sunset", "custom"]
+          },
+          "card_color": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          },
+          "card_background_image": {
+            "type": "string",
+            "format": "uri"
+          },
+          "mcc_restrictions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9]{4}$"
+            }
+          },
+          "country_restrictions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z]{2}$"
+            }
+          },
+          "additional_config": {
+            "type": "object"
+          },
+          "updated_by": {
+            "type": "string"
+          }
+        }
+      },
+      "ConfigurationResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/Configuration"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "ConfigurationListResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Configuration"
+            }
+          },
+          "count": {
+            "type": "integer",
+            "description": "Number of items returned"
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "limit": {
+                "type": "integer"
+              },
+              "offset": {
+                "type": "integer"
+              },
+              "hasMore": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      },
+      "SchemaResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "schema": {
+            "type": "object",
+            "description": "Schema definition for all configuration fields"
+          },
+          "version": {
+            "type": "string",
+            "example": "1.0.0"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "error": {
+            "type": "string",
+            "description": "Error type"
+          },
+          "message": {
+            "type": "string",
+            "description": "Detailed error message"
+          }
+        }
+      },
+      "ValidationErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "error": {
+            "type": "string",
+            "example": "Missing required fields"
+          },
+          "missingFields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "validValues": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}
