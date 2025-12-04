@@ -161,16 +161,26 @@ export async function deleteConfiguration(id, softDelete = false) {
  * @returns {Object} API-formatted configuration data
  */
 export function transformWizardToAPI(wizardData, clientInfo = {}) {
+  // Helper function to capitalize first letter (for card schemes)
+  const capitalizeFirst = (str) => {
+    if (!str) return str;
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+  };
+
+  // Get card scheme and normalize casing (visa -> Visa, mastercard -> Mastercard)
+  const rawScheme = wizardData.scheme || wizardData.card_scheme;
+  const cardScheme = capitalizeFirst(rawScheme);
+
   return {
     // Required fields
     program_name: wizardData.name || wizardData.program_name,
-    program_type: wizardData.type || wizardData.program_type,
-    funding_model: wizardData.fundingModel || wizardData.funding_model,
+    program_type: (wizardData.type || wizardData.program_type)?.toLowerCase(),
+    funding_model: (wizardData.fundingModel || wizardData.funding_model)?.toLowerCase(),
     form_factors: Array.isArray(wizardData.formFactor)
-      ? wizardData.formFactor
-      : wizardData.form_factors || [],
-    card_scheme: wizardData.scheme || wizardData.card_scheme,
-    currency: wizardData.currency,
+      ? wizardData.formFactor.map(f => f.toLowerCase())
+      : (wizardData.form_factors || []).map(f => f.toLowerCase()),
+    card_scheme: cardScheme,
+    currency: (wizardData.currency || 'EUR').toUpperCase(),
 
     // Client information
     client_email: clientInfo.email,
