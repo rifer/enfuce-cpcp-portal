@@ -332,6 +332,123 @@
       "expected_validation": true,
       "expected_value": 15000,
       "description": "Math with context"
+    },
+    {
+      "id": "currency-dollar",
+      "category": "validation",
+      "step": "currency",
+      "input": "dollars",
+      "expected_validation": true,
+      "expected_value": "USD",
+      "description": "Currency name: dollars → USD"
+    },
+    {
+      "id": "currency-pound",
+      "category": "validation",
+      "step": "currency",
+      "input": "British pounds",
+      "expected_validation": true,
+      "expected_value": "GBP",
+      "description": "Currency name: British pounds → GBP"
+    },
+    {
+      "id": "currency-norway",
+      "category": "validation",
+      "step": "currency",
+      "input": "Norwegian krone",
+      "expected_validation": true,
+      "expected_value": "NOK",
+      "description": "Currency: Norwegian krone → NOK"
+    },
+    {
+      "id": "currency-denmark",
+      "category": "validation",
+      "step": "currency",
+      "input": "Danish krone",
+      "expected_validation": true,
+      "expected_value": "DKK",
+      "description": "Currency: Danish krone → DKK"
+    },
+    {
+      "id": "currency-poland",
+      "category": "validation",
+      "step": "currency",
+      "input": "zloty",
+      "expected_validation": true,
+      "expected_value": "PLN",
+      "description": "Currency: zloty → PLN"
+    },
+    {
+      "id": "currency-swiss",
+      "category": "validation",
+      "step": "currency",
+      "input": "Swiss francs",
+      "expected_validation": true,
+      "expected_value": "CHF",
+      "description": "Currency: Swiss francs → CHF"
+    },
+    {
+      "id": "scheme-amex-short",
+      "category": "validation",
+      "step": "card_scheme",
+      "input": "amex",
+      "expected_validation": true,
+      "expected_value": "American Express",
+      "description": "Scheme abbreviation: amex → American Express"
+    },
+    {
+      "id": "scheme-amex-full",
+      "category": "validation",
+      "step": "card_scheme",
+      "input": "american express",
+      "expected_validation": true,
+      "expected_value": "American Express",
+      "description": "Full name: american express → American Express"
+    },
+    {
+      "id": "scheme-amex-ae",
+      "category": "validation",
+      "step": "card_scheme",
+      "input": "AE",
+      "expected_validation": true,
+      "expected_value": "American Express",
+      "description": "Abbreviation: AE → American Express"
+    },
+    {
+      "id": "type-work",
+      "category": "validation",
+      "step": "program_type",
+      "input": "work cards",
+      "expected_validation": true,
+      "expected_value": "corporate",
+      "description": "Natural language: work → corporate"
+    },
+    {
+      "id": "type-office",
+      "category": "validation",
+      "step": "program_type",
+      "input": "office expenses",
+      "expected_validation": true,
+      "expected_value": "corporate",
+      "description": "Natural language: office → corporate"
+    },
+    {
+      "id": "factor-wallet",
+      "category": "validation",
+      "step": "form_factor",
+      "input": "mobile wallet",
+      "expected_validation": true,
+      "expected_response_contains": ["tokenized"],
+      "description": "Form factor: mobile wallet → tokenized"
+    },
+    {
+      "id": "factor-apple-pay",
+      "category": "validation",
+      "step": "form_factor",
+      "input": "Apple Pay",
+      "expected_validation": true,
+      "expected_response_contains": ["tokenized"],
+      "description": "Form factor: Apple Pay → tokenized"
     }
   ]
 }

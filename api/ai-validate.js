@@ -382,58 +382,105 @@ function validateFieldLocally(question, userInput) {
         validated: true,
         extracted_value: exactMatch,
         confidence: 0.95,
-        ai_response: `Perfect! I'll set it to ${exactMatch}.`,
+        ai_response: `Got it! ${exactMatch} it is.`,
         requires_clarification: false
       };
     }
 
-    // Fuzzy matching with keywords
+    // Expanded fuzzy matching with many more keywords
     const fuzzyMatches = {
       // Card types
-      'corporate': ['business', 'company', 'corporate', 'employee'],
-      'fleet': ['fuel', 'gas', 'vehicle', 'fleet'],
-      'meal': ['food', 'meal', 'lunch', 'dinner'],
-      'travel': ['travel', 'trip', 'accommodation'],
-      'gift': ['gift', 'voucher', 'present'],
-      'transport': ['transport', 'commute', 'transit'],
+      'corporate': ['business', 'company', 'corporate', 'employee', 'work', 'office', 'enterprise'],
+      'fleet': ['fuel', 'gas', 'vehicle', 'fleet', 'car', 'truck', 'diesel'],
+      'meal': ['food', 'meal', 'lunch', 'dinner', 'restaurant', 'eat'],
+      'travel': ['travel', 'trip', 'accommodation', 'hotel', 'flight'],
+      'gift': ['gift', 'voucher', 'present', 'reward'],
+      'transport': ['transport', 'commute', 'transit', 'bus', 'train', 'metro'],
 
       // Funding models
-      'prepaid': ['prepaid', 'load', 'advance'],
-      'debit': ['debit', 'bank', 'account'],
-      'credit': ['credit', 'loan', 'billing'],
-      'revolving': ['revolving', 'revolve'],
+      'prepaid': ['prepaid', 'load', 'advance', 'pre-paid', 'preload'],
+      'debit': ['debit', 'bank', 'account', 'checking'],
+      'credit': ['credit', 'loan', 'billing', 'invoice', 'bill'],
+      'revolving': ['revolving', 'revolve', 'rotating'],
 
       // Form factors
-      'physical': ['physical', 'plastic', 'card'],
-      'virtual': ['virtual', 'digital', 'online'],
-      'tokenized': ['tokenized', 'mobile', 'wallet', 'apple', 'google'],
+      'physical': ['physical', 'plastic', 'card', 'real', 'tangible'],
+      'virtual': ['virtual', 'digital', 'online', 'electronic', 'e-card'],
+      'tokenized': ['tokenized', 'mobile', 'wallet', 'apple', 'google', 'samsung', 'pay', 'phone'],
 
       // Schemes
       'Visa': ['visa', 'v'],
       'Mastercard': ['mastercard', 'mc', 'master'],
+      'American Express': ['amex', 'american express', 'americanexpress', 'american', 'express', 'ae', 'amx'],
 
-      // Currencies
-      'EUR': ['eur', 'euro', 'europe'],
-      'USD': ['usd', 'dollar', 'us', 'american'],
-      'GBP': ['gbp', 'pound', 'sterling', 'uk', 'british'],
-      'SEK': ['sek', 'krona', 'sweden', 'swedish']
+      // ALL Currencies with extensive keywords
+      'EUR': ['eur', 'euro', 'euros', 'europe', 'european', '€'],
+      'USD': ['usd', 'dollar', 'dollars', 'us', 'american', 'usa', 'united states', '$'],
+      'GBP': ['gbp', 'pound', 'pounds', 'sterling', 'uk', 'british', 'britain', 'england', '£'],
+      'SEK': ['sek', 'krona', 'kronor', 'sweden', 'swedish'],
+      'NOK': ['nok', 'krone', 'kroner', 'norway', 'norwegian'],
+      'DKK': ['dkk', 'krone', 'denmark', 'danish'],
+      'PLN': ['pln', 'zloty', 'poland', 'polish'],
+      'CZK': ['czk', 'koruna', 'czech', 'czechia'],
+      'HUF': ['huf', 'forint', 'hungary', 'hungarian'],
+      'CHF': ['chf', 'franc', 'swiss', 'switzerland']
     };
 
+    // Check fuzzy matches
+    let bestMatch = null;
+    let bestKeyword = null;
+
     for (const [value, keywords] of Object.entries(fuzzyMatches)) {
-      if (keywords.some(kw => lowerInput.includes(kw))) {
-        return {
-          validated: true,
-          extracted_value: value,
-          confidence: 0.85,
-          ai_response: `I understood ${value}. Is that correct?`,
-          requires_clarification: false
-        };
+      for (const kw of keywords) {
+        if (lowerInput.includes(kw)) {
+          // Check if this option is actually in the available options
+          if (options.some(opt => opt.toLowerCase() === value.toLowerCase() || opt === value)) {
+            bestMatch = value;
+            bestKeyword = kw;
+            break;
+          }
+        }
       }
+      if (bestMatch) break;
     }
+
+    if (bestMatch) {
+      return {
+        validated: true,
+        extracted_value: bestMatch,
+        confidence: 0.9,
+        ai_response: `Perfect! Going with ${bestMatch}.`,
+        requires_clarification: false
+      };
+    }
+
+    // Try partial string match in options (more lenient)
+    const partialMatch = options.find(opt => {
+      const optLower = opt.toLowerCase();
+      const words = lowerInput.split(/\s+/);
+      return words.some(word => word.length > 2 && optLower.includes(word));
+    });
+
+    if (partialMatch) {
+      return {
+        validated: true,
+        extracted_value: partialMatch,
+        confidence: 0.75,
+        ai_response: `I think you meant ${partialMatch}?`,
+        requires_clarification: false
+      };
+    }
+
+    // More helpful failure with smart suggestions
+    const friendlyMessages = [
+      `Let's try this differently - just type one of these: ${options.join(', ')}`,
+      `I need one of these specific options: ${options.slice(0, 3).join(', ')}${options.length > 3 ? '...' : ''}`,
+      `Pick any: ${options.join(' | ')}`
+    ];
 
     return {
       validated: false,
-      ai_response: `I'm not sure I understood. The options are: ${options.join(', ')}. Which one would you like?`,
+      ai_response: friendlyMessages[Math.floor(Math.random() * friendlyMessages.length)],
       suggestions: options,
       requires_clarification: true
     };
@@ -451,7 +498,7 @@ function validateFieldLocally(question, userInput) {
         validated: true,
         extracted_value: options,
         confidence: 1.0,
-        ai_response: `Perfect! I'll include all options: ${options.join(', ')}.`,
+        ai_response: `Got it! Including everything: ${options.slice(0, 3).join(', ')}${options.length > 3 ? ` and ${options.length - 3} more` : ''}.`,
         requires_clarification: false
       };
     }
