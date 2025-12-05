@@ -39,3 +39,4 @@ evals/results/
 .cache/
 .parcel-cache/
 .eslintcache
+.vercel

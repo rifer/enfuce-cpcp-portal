@@ -611,6 +611,83 @@
       "expected_validation": false,
       "expected_command": "skip",
       "description": "Skip command: i don't know → skip"
+    },
+    {
+      "id": "digit-scale-2-hundred",
+      "category": "number_extraction",
+      "step": "estimated_cards",
+      "input": "2 hundred",
+      "expected_validation": true,
+      "expected_value": 200,
+      "description": "Digit + scale: 2 hundred → 200"
+    },
+    {
+      "id": "digit-scale-5-thousand",
+      "category": "number_extraction",
+      "step": "estimated_cards",
+      "input": "5 thousand",
+      "expected_validation": true,
+      "expected_value": 5000,
+      "description": "Digit + scale: 5 thousand → 5000"
+    },
+    {
+      "id": "digit-scale-10-hundred",
+      "category": "number_extraction",
+      "step": "estimated_cards",
+      "input": "10 hundred",
+      "expected_validation": true,
+      "expected_value": 1000,
+      "description": "Digit + scale: 10 hundred → 1000"
+    },
+    {
+      "id": "digit-scale-3-million",
+      "category": "number_extraction",
+      "step": "estimated_cards",
+      "input": "3 million",
+      "expected_validation": true,
+      "expected_value": 3000000,
+      "description": "Digit + scale: 3 million → 3000000"
+    },
+    {
+      "id": "strict-match-visa-not-program-type",
+      "category": "strict_matching",
+      "step": "program_type",
+      "input": "Visa",
+      "expected_validation": false,
+      "description": "Strict match: 'Visa' should NOT match program_type"
+    },
+    {
+      "id": "strict-match-visa-not-funding",
+      "category": "strict_matching",
+      "step": "funding_model",
+      "input": "Visa",
+      "expected_validation": false,
+      "description": "Strict match: 'Visa' should NOT match funding_model"
+    },
+    {
+      "id": "strict-match-visa-not-currency",
+      "category": "strict_matching",
+      "step": "currency",
+      "input": "VISA",
+      "expected_validation": false,
+      "description": "Strict match: 'VISA' should NOT match currency"
+    },
+    {
+      "id": "strict-match-visa-for-scheme",
+      "category": "strict_matching",
+      "step": "card_scheme",
+      "input": "Visa",
+      "expected_validation": true,
+      "expected_value": "Visa",
+      "description": "Strict match: 'Visa' SHOULD match card_scheme"
+    },
+    {
+      "id": "typo-with-digit-2hudrez",
+      "category": "typo_detection",
+      "step": "estimated_cards",
+      "input": "2hudrez",
+      "expected_validation": false,
+      "description": "Typo detection: '2hudrez' should not be accepted as valid number"
     }
   ]
 }

@@ -345,32 +345,45 @@ function findClosestMatch(input, options, threshold = 2) {
 function parseWrittenNumber(text) {
   const lowerText = text.toLowerCase();
 
+  // Handle digit + scale combinations FIRST (e.g., "2 hundred", "5 thousand")
+  const digitScalePattern = /(\d+)\s*(hundred|thousand|million)/;
+  const digitScaleMatch = lowerText.match(digitScalePattern);
+
+  if (digitScaleMatch) {
+    const multiplier = parseInt(digitScaleMatch[1]);
+    const scales = { 'hundred': 100, 'thousand': 1000, 'million': 1000000 };
+    const scale = scales[digitScaleMatch[2]] || 1;
+    return multiplier * scale;
+  }
+
   // Handle compound numbers like "two hundred", "one thousand", "five hundred"
-  const compoundPattern = /(one|two|three|four|five|six|seven|eight|nine|ten)\s+(hundred|thousand)/;
+  const compoundPattern = /(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty|fifty)\s+(hundred|thousand|million)/;
   const compoundMatch = lowerText.match(compoundPattern);
 
   if (compoundMatch) {
     const multipliers = {
       'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
-      'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10
+      'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+      'eleven': 11, 'twelve': 12, 'fifteen': 15, 'twenty': 20,
+      'thirty': 30, 'forty': 40, 'fifty': 50
     };
-    const scales = { 'hundred': 100, 'thousand': 1000 };
+    const scales = { 'hundred': 100, 'thousand': 1000, 'million': 1000000 };
 
     const multiplier = multipliers[compoundMatch[1]] || 1;
     const scale = scales[compoundMatch[2]] || 1;
     return multiplier * scale;
   }
 
-  // Simple word numbers
+  // Simple word numbers (but NOT scales standalone - those should not match)
   const wordNumbers = {
     'zero': 0, 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
     'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
-    'twenty': 20, 'thirty': 30, 'forty': 40, 'fifty': 50,
-    'hundred': 100, 'thousand': 1000, 'million': 1000000
+    'eleven': 11, 'twelve': 12, 'fifteen': 15, 'twenty': 20,
+    'thirty': 30, 'forty': 40, 'fifty': 50
   };
 
   for (const [word, value] of Object.entries(wordNumbers)) {
-    if (lowerText.includes(word)) {
+    if (lowerText === word || lowerText.includes(' ' + word + ' ') || lowerText.startsWith(word + ' ') || lowerText.endsWith(' ' + word)) {
       return value;
     }
   }
@@ -464,23 +477,8 @@ function validateFieldLocally(question, userInput) {
       };
     }
 
-    // Legacy word number support (for simple cases)
-    const wordNumbers = {
-      'one': 1, 'two': 2, 'three': 3, 'five': 5, 'ten': 10,
-      'twenty': 20, 'fifty': 50, 'hundred': 100, 'thousand': 1000
-    };
-
-    for (const [word, num] of Object.entries(wordNumbers)) {
-      if (lowerInput.includes(word)) {
-        return {
-          validated: true,
-          extracted_value: num,
-          confidence: 0.7,
-          ai_response: `I understood ${num}. Is that correct?`,
-          requires_clarification: false
-        };
-      }
-    }
+    // This should not be reached if parseWrittenNumber worked correctly
+    // If we get here, the written number parser failed to extract the number
 
     return {
       validated: false,
@@ -507,19 +505,35 @@ function validateFieldLocally(question, userInput) {
       }
     }
 
-    // Try exact match first
+    // Try exact match first (strict matching only)
     const exactMatch = options.find(opt =>
-      opt.toLowerCase() === lowerInput ||
-      opt.toLowerCase().includes(lowerInput) ||
-      lowerInput.includes(opt.toLowerCase())
+      opt.toLowerCase() === lowerInput
     );
 
     if (exactMatch) {
       return {
         validated: true,
         extracted_value: exactMatch,
-        confidence: 0.95,
-        ai_response: `Got it! ${exactMatch} it is.`,
+        confidence: 1.0,
+        ai_response: `Perfect! ${exactMatch} it is. ✓`,
+        requires_clarification: false
+      };
+    }
+
+    // Try partial match (but only if input is substantial part of option)
+    const partialMatch = options.find(opt => {
+      const optLower = opt.toLowerCase();
+      const inputLower = lowerInput;
+      // Only match if input is at least 50% of the option and matches from start
+      return optLower.startsWith(inputLower) && inputLower.length >= optLower.length * 0.5;
+    });
+
+    if (partialMatch) {
+      return {
+        validated: true,
+        extracted_value: partialMatch,
+        confidence: 0.9,
+        ai_response: `Great! ${partialMatch} it is. ✓`,
         requires_clarification: false
       };
     }
