@@ -121,7 +121,7 @@ function processCommand(input, history, collectedData, currentQuestion = {}) {
     if (fieldName === 'program_name') {
       contextualResponse += 'Let\'s start with the program name - what would you like to call it?';
     } else if (fieldName === 'program_type') {
-      contextualResponse += 'Now, what type of card program are you creating?';
+      contextualResponse += 'Now, what card program type are you creating?';
     } else {
       contextualResponse += `Let's continue with ${questionText.toLowerCase()}`;
     }
@@ -686,20 +686,35 @@ STRICT VALUE MATCHING:
 - For text fields: Return the FULL user input exactly as they typed it
 - Example: Input "Corporate Travel Card" → Return "Corporate Travel Card" (NOT "corporate travel card" or "Corporate")
 
-Your job:
-1. GREETINGS (hello, hi, hey) → Respond warmly, redirect to question
-2. QUESTIONS ("can I use more than one?") → Answer their question, then ask for their choice
-3. "ALL" or "all of them":
-   - If MULTISELECT field → Extract ALL options ✓
-   - If SINGLE-SELECT field → Ask them to pick ONE ✗
-4. NUMBER WORDS ("one thousand", "fifty") → Convert to digits (1000, 50)
-5. MATH EXPRESSIONS ("200*30") → Calculate the result (6000)
-6. TYPOS ("Feal" = Fleet, "vorporate" = corporate, "Misa" = Visa) → Find closest match
-7. LOCATIONS ("Spain" = EUR, "Sweden" = SEK) → Map to currency
-8. QUESTIONS IN RESPONSE ("would 200 be fine?") → Extract the number (200)
-9. CORRECTIONS ("no, I meant X") → Extract X
+CRITICAL VALIDATION RULES:
+1. VALIDATE INPUT FIRST against field requirements (minLength, maxLength, options)
+2. If input fails validation → Return validated: false with error message
+3. DON'T respond with greetings unless input is LITERALLY a greeting word (hello/hi/hey)
+4. Invalid inputs like "AB" (too short) or "something weird" (no match) are NOT greetings!
 
-Be WARM and CONVERSATIONAL. Answer questions naturally!
+Your job:
+1. CHECK VALIDATION FIRST:
+   - Text fields: Enforce minLength/maxLength BEFORE any response
+   - Select fields: Match to available options OR reject with error
+   - Multiselect: ALWAYS return ARRAY (even single values like ["physical"])
+
+2. THEN handle special cases:
+   - GREETINGS (literally "hello", "hi", "hey") → Respond warmly, redirect
+   - NATURAL LANGUAGE extraction:
+     * "for our company's employees" → Extract "corporate"
+     * "lunch vouchers" → Extract "meal" (NOT return "lunch vouchers")
+     * "we want to preload" → Extract "prepaid"
+   - "ALL" or "all of them":
+     * If MULTISELECT → Return ALL options as ARRAY
+     * If SINGLE-SELECT → Ask them to pick ONE
+   - NUMBER WORDS ("one thousand" → 1000)
+   - MATH EXPRESSIONS ("200*30" → 6000)
+   - TYPOS ("viza" → "Visa", fuzzy match to closest option)
+   - LOCATIONS ("Sweden" → "SEK")
+   - QUESTIONS ("can I use more than one?") → Answer, then ask for choice
+   - CORRECTIONS ("no, I meant X") → Extract X
+
+For MULTISELECT: Return arrays ALWAYS! Input "physical" → ["physical"]
 
 Output JSON only (no markdown):
 {
@@ -743,7 +758,25 @@ User: "we're based in Sweden" (location → "SEK" currency)
 Response: {"validated": true, "extracted_value": "SEK", "confidence": 1.0, "ai_response": "Perfect! Since you're in Sweden, we'll use SEK. ✓", "requires_clarification": false}
 
 User: "200*30" (math expression)
-Response: {"validated": true, "extracted_value": 6000, "confidence": 1.0, "ai_response": "Perfect! 6,000 (200 x 30). That makes sense!", "requires_clarification": false}`;
+Response: {"validated": true, "extracted_value": 6000, "confidence": 1.0, "ai_response": "Perfect! 6,000 (200 x 30). That makes sense!", "requires_clarification": false}
+
+User: "AB" (text field with minLength: 3 - MUST REJECT, NOT greet!)
+Response: {"validated": false, "extracted_value": null, "confidence": 0.0, "ai_response": "That's a bit too short. Please provide at least 3 characters for the program name.", "requires_clarification": true}
+
+User: "something weird" (select field with specific options - NO MATCH, reject!)
+Response: {"validated": false, "extracted_value": null, "confidence": 0.0, "ai_response": "I didn't quite understand that. The options are: corporate, fleet, meal, travel, gift, transport, healthcare, education. Which one would you like?", "requires_clarification": true}
+
+User: "This is for our company's employees" (natural language → extract "corporate")
+Response: {"validated": true, "extracted_value": "corporate", "confidence": 0.9, "ai_response": "Perfect! Corporate cards for your company's employees. Great!", "requires_clarification": false}
+
+User: "lunch vouchers" (natural language → extract "meal" from options, NOT return input!)
+Response: {"validated": true, "extracted_value": "meal", "confidence": 0.95, "ai_response": "Got it! Meal cards for lunch vouchers. Perfect!", "requires_clarification": false}
+
+User: "physical" (multiselect field - MUST return ARRAY!)
+Response: {"validated": true, "extracted_value": ["physical"], "confidence": 1.0, "ai_response": "Great! Physical cards selected.", "requires_clarification": false}
+
+User: "My company's fleet card program" (text field - preserve FULL text exactly!)
+Response: {"validated": true, "extracted_value": "My company's fleet card program", "confidence": 1.0, "ai_response": "Perfect! 'My company's fleet card program' it is. Let's continue!", "requires_clarification": false}`;
 
   try {
     console.log('[Anthropic] Preparing request...');
