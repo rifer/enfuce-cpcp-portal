@@ -891,6 +891,11 @@ CRITICAL VALIDATION RULES:
 2. If input fails validation → Return validated: false with error message
 3. DON'T respond with greetings unless input is LITERALLY a greeting word (hello/hi/hey)
 4. Invalid inputs like "AB" (too short) or "something weird" (no match) are NOT greetings!
+5. NEVER extract values from keywords that belong to OTHER fields:
+   - "Visa" is a card_scheme, NOT a program_type, funding_model, or currency
+   - "Corporate" is a program_type, NOT a card_scheme
+   - Only match if the keyword IS in the current field's available options
+   - If user says "Visa" but options are ["Corporate", "Fleet", "Meal"], REJECT with error!
 
 Your job:
 1. CHECK VALIDATION FIRST:
@@ -966,8 +971,11 @@ Response: {"validated": false, "extracted_value": null, "confidence": 0.0, "ai_r
 User: "something weird" (select field with specific options - NO MATCH, reject!)
 Response: {"validated": false, "extracted_value": null, "confidence": 0.0, "ai_response": "I didn't quite understand that. The options are: corporate, fleet, meal, travel, gift, transport, healthcare, education. Which one would you like?", "requires_clarification": true}
 
+User: "Visa" (on program_type field with options ["Corporate", "Fleet", "Meal"] - REJECT!)
+Response: {"validated": false, "extracted_value": null, "confidence": 0.0, "ai_response": "Hmm, 'Visa' isn't one of the available program types. The options are: Corporate, Fleet, Meal, Travel, Gift, Transport, Healthcare, Education. Which type of program would you like to create?", "requires_clarification": true}
+
 User: "This is for our company's employees" (natural language → extract "corporate")
-Response: {"validated": true, "extracted_value": "corporate", "confidence": 0.9, "ai_response": "Perfect! Corporate cards for your company's employees. Great!", "requires_clarification": false}
+Response: {"validated": true, "extracted_value": "Corporate", "confidence": 0.9, "ai_response": "Perfect! Corporate cards for your company's employees. Great!", "requires_clarification": false}
 
 User: "lunch vouchers" (natural language → extract "meal" from options, NOT return input!)
 Response: {"validated": true, "extracted_value": "meal", "confidence": 0.95, "ai_response": "Got it! Meal cards for lunch vouchers. Perfect!", "requires_clarification": false}
