@@ -84,21 +84,44 @@ jobs:
             echo "url=http://localhost:5173" >> $GITHUB_OUTPUT
           fi
 
-      - name: Run EVALS
+      - name: Run EVALS - Local Provider
         env:
           API_URL: ${{ steps.api_url.outputs.url }}
-          AI_PROVIDER: ${{ github.event.inputs.ai_provider || 'local' }}
+          AI_PROVIDER: local
         run: |
-          echo "🧪 Running EVALS against: $API_URL"
-          echo "🤖 AI Provider: $AI_PROVIDER"
-          npm run evals
+          echo "🧪 Running EVALS (LOCAL) against: $API_URL"
+          npm run evals:local
 
-      - name: Upload EVALS results
+      - name: Run EVALS - Anthropic Provider
+        env:
+          API_URL: ${{ steps.api_url.outputs.url }}
+          AI_PROVIDER: anthropic
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          echo "🧪 Running EVALS (ANTHROPIC) against: $API_URL"
+          npm run evals:anthropic
+
+      - name: Upload EVALS results - Local
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: evals-results
-          path: evals/results/latest.json
+          name: evals-results-local
+          path: |
+            evals/results/latest-local.json
+            evals/failures/failures-local.txt
+            evals/failures/failures-local.json
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Upload EVALS results - Anthropic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evals-results-anthropic
+          path: |
+            evals/results/latest-anthropic.json
+            evals/failures/failures-anthropic.txt
+            evals/failures/failures-anthropic.json
           retention-days: 30
           if-no-files-found: warn
 
@@ -108,20 +131,19 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const resultsPath = 'evals/results/latest.json';
+            const localPath = 'evals/results/latest-local.json';
+            const anthropicPath = 'evals/results/latest-anthropic.json';
 
-            // Check if results file exists
-            if (!fs.existsSync(resultsPath)) {
+            // Check if results files exist
+            const localExists = fs.existsSync(localPath);
+            const anthropicExists = fs.existsSync(anthropicPath);
+
+            if (!localExists && !anthropicExists) {
               const body = `## 🧪 EVALS Results
 
               ⚠️ **EVALS did not complete successfully**
 
-              The EVALS test suite failed to run or did not generate results.
-              This could be due to:
-              - API not being available yet
-              - Network connectivity issues
-              - EVALS script error
-
+              Neither local nor anthropic tests generated results.
               Check the workflow logs for details.`;
 
               github.rest.issues.createComment({
@@ -133,25 +155,46 @@ jobs:
               return;
             }
 
-            const results = JSON.parse(fs.readFileSync(resultsPath, 'utf8'));
+            let body = `## 🧪 EVALS Results (Dual-Provider)\n\n`;
 
-            const body = `## 🧪 EVALS Results
+            // Local provider results
+            if (localExists) {
+              const local = JSON.parse(fs.readFileSync(localPath, 'utf8'));
+              body += `### 🔵 Local Provider
+**Overall:** ${local.passed}/${local.total} tests passed (${local.metrics.validation_accuracy.toFixed(1)}%)
 
-            **Overall:** ${results.passed}/${results.total} tests passed (${results.metrics.validation_accuracy.toFixed(1)}%)
+**Metrics:**
+- ⏱️ Avg Response Time: ${local.metrics.avg_response_time.toFixed(0)}ms
+- 🔤 Typo Correction: ${local.metrics.typo_correction_rate.toFixed(1)}%
+- ⌨️ Command Recognition: ${local.metrics.command_recognition_rate.toFixed(1)}%
+- 🗣️ Natural Language: ${local.metrics.natural_language_understanding.toFixed(1)}%
 
-            ### Metrics
-            - ⏱️ Avg Response Time: ${results.metrics.avg_response_time.toFixed(0)}ms
-            - 🔤 Typo Correction: ${results.metrics.typo_correction_rate.toFixed(1)}%
-            - ⌨️ Command Recognition: ${results.metrics.command_recognition_rate.toFixed(1)}%
-            - 🗣️ Natural Language: ${results.metrics.natural_language_understanding.toFixed(1)}%
+${local.failed > 0 ? `⚠️ **${local.failed} tests failed** - Check artifacts for failures-local.txt` : '✅ All tests passed!'}
 
-            ### By Category
-            ${Object.entries(results.by_category).map(([cat, stats]) =>
-              `- ${cat}: ${stats.passed}/${stats.total} (${((stats.passed/stats.total)*100).toFixed(0)}%)`
-            ).join('\n')}
+`;
+            } else {
+              body += `### 🔵 Local Provider\n⚠️ Tests did not complete\n\n`;
+            }
 
-            ${results.failed > 0 ? '⚠️ Some tests failed. Check the artifacts for details.' : '✅ All tests passed!'}
-            `;
+            // Anthropic provider results
+            if (anthropicExists) {
+              const anthropic = JSON.parse(fs.readFileSync(anthropicPath, 'utf8'));
+              body += `### 🟢 Anthropic Provider
+**Overall:** ${anthropic.passed}/${anthropic.total} tests passed (${anthropic.metrics.validation_accuracy.toFixed(1)}%)
+
+**Metrics:**
+- ⏱️ Avg Response Time: ${anthropic.metrics.avg_response_time.toFixed(0)}ms
+- 🔤 Typo Correction: ${anthropic.metrics.typo_correction_rate.toFixed(1)}%
+- ⌨️ Command Recognition: ${anthropic.metrics.command_recognition_rate.toFixed(1)}%
+- 🗣️ Natural Language: ${anthropic.metrics.natural_language_understanding.toFixed(1)}%
+
+${anthropic.failed > 0 ? `⚠️ **${anthropic.failed} tests failed** - Check artifacts for failures-anthropic.txt` : '✅ All tests passed!'}
+`;
+            } else {
+              body += `### 🟢 Anthropic Provider\n⚠️ Tests did not complete\n`;
+            }
+
+            body += `\n---\n📦 Download detailed failure reports from workflow artifacts`;
 
             github.rest.issues.createComment({
               issue_number: context.issue.number,
@@ -163,27 +206,65 @@ jobs:
       - name: Fail if accuracy below threshold
         if: always()
         run: |
-          RESULTS_FILE="evals/results/latest.json"
+          LOCAL_FILE="evals/results/latest-local.json"
+          ANTHROPIC_FILE="evals/results/latest-anthropic.json"
+          THRESHOLD=85
+          FAILED=0
 
-          # Check if results file exists
-          if [ ! -f "$RESULTS_FILE" ]; then
-            echo "❌ EVALS results file not found at $RESULTS_FILE"
-            echo "This likely means the EVALS did not complete successfully."
-            echo "Check the 'Run EVALS' step logs for errors."
-            exit 1
+          echo "==================================================================================="
+          echo "Checking EVALS accuracy for both providers (threshold: ${THRESHOLD}%)"
+          echo "==================================================================================="
+
+          # Check local provider
+          if [ -f "$LOCAL_FILE" ]; then
+            LOCAL_ACCURACY=$(node -e "
+              const fs = require('fs');
+              const results = JSON.parse(fs.readFileSync('$LOCAL_FILE', 'utf8'));
+              console.log(results.metrics.validation_accuracy);
+            ")
+            echo ""
+            echo "🔵 LOCAL Provider Accuracy: $LOCAL_ACCURACY%"
+
+            if (( $(echo "$LOCAL_ACCURACY < $THRESHOLD" | bc -l) )); then
+              echo "   ❌ Below threshold (${THRESHOLD}%)"
+              FAILED=1
+            else
+              echo "   ✅ Meets threshold"
+            fi
+          else
+            echo "❌ Local results file not found"
+            FAILED=1
           fi
 
-          ACCURACY=$(node -e "
-            const fs = require('fs');
-            const results = JSON.parse(fs.readFileSync('$RESULTS_FILE', 'utf8'));
-            console.log(results.metrics.validation_accuracy);
-          ")
+          # Check anthropic provider
+          if [ -f "$ANTHROPIC_FILE" ]; then
+            ANTHROPIC_ACCURACY=$(node -e "
+              const fs = require('fs');
+              const results = JSON.parse(fs.readFileSync('$ANTHROPIC_FILE', 'utf8'));
+              console.log(results.metrics.validation_accuracy);
+            ")
+            echo ""
+            echo "🟢 ANTHROPIC Provider Accuracy: $ANTHROPIC_ACCURACY%"
 
-          echo "Validation Accuracy: $ACCURACY%"
+            if (( $(echo "$ANTHROPIC_ACCURACY < $THRESHOLD" | bc -l) )); then
+              echo "   ❌ Below threshold (${THRESHOLD}%)"
+              FAILED=1
+            else
+              echo "   ✅ Meets threshold"
+            fi
+          else
+            echo "❌ Anthropic results file not found"
+            FAILED=1
+          fi
 
-          if (( $(echo "$ACCURACY < 85" | bc -l) )); then
-            echo "❌ EVALS accuracy ($ACCURACY%) is below threshold (85%)"
+          echo ""
+          echo "==================================================================================="
+
+          if [ $FAILED -eq 1 ]; then
+            echo "❌ One or more providers failed to meet accuracy threshold"
+            echo "📦 Download failure reports from artifacts for details"
             exit 1
           else
-            echo "✅ EVALS accuracy ($ACCURACY%) meets threshold"
+            echo "✅ Both providers meet accuracy threshold!"
+            exit 0
           fi
