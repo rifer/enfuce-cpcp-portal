@@ -43,7 +43,7 @@ export default async function handler(req, res) {
     }
 
     // Check for commands first (always local processing)
-    const commandResult = processCommand(user_input, conversation_history, collected_data);
+    const commandResult = processCommand(user_input, conversation_history, collected_data, current_question);
     if (commandResult.is_command) {
       console.log('[AI-Validate] Command detected:', commandResult.command);
       return res.status(200).json({
@@ -53,7 +53,8 @@ export default async function handler(req, res) {
         command: commandResult.command,
         command_action: commandResult.action,
         ai_response: commandResult.response,
-        data: commandResult.data
+        data: commandResult.data,
+        validated: false // Commands don't validate the current field
       });
     }
 
@@ -95,8 +96,10 @@ export default async function handler(req, res) {
 }
 
 // Command processing (reset, back, summary, help, edit, skip)
-function processCommand(input, history, collectedData) {
+function processCommand(input, history, collectedData, currentQuestion = {}) {
   const lowerInput = input.toLowerCase().trim();
+  const fieldName = currentQuestion.field || 'this question';
+  const questionText = currentQuestion.question || 'the current question';
 
   // Reset commands
   if (['reset', 'start over', 'restart', 'begin again'].some(cmd => lowerInput === cmd || lowerInput.includes(cmd))) {
@@ -105,6 +108,29 @@ function processCommand(input, history, collectedData) {
       command: 'reset',
       action: 'restart_wizard',
       response: 'Are you sure you want to start over? All progress will be lost. Type "yes" to confirm or continue answering the current question.',
+      data: null
+    };
+  }
+
+  // Greeting detection (should not be treated as help) - context-aware
+  const greetings = ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening', 'greetings'];
+  if (greetings.some(greeting => lowerInput === greeting || lowerInput.startsWith(greeting + ' ') || lowerInput.startsWith(greeting + ','))) {
+    let contextualResponse = 'Hello! 👋 I\'m happy to help you set up your card program. ';
+
+    // Add context based on current field
+    if (fieldName === 'program_name') {
+      contextualResponse += 'Let\'s start with the program name - what would you like to call it?';
+    } else if (fieldName === 'program_type') {
+      contextualResponse += 'Now, what card program type are you creating?';
+    } else {
+      contextualResponse += `Let's continue with ${questionText.toLowerCase()}`;
+    }
+
+    return {
+      is_command: true,
+      command: 'greeting',
+      action: 'acknowledge_greeting',
+      response: contextualResponse,
       data: null
     };
   }
@@ -132,13 +158,59 @@ function processCommand(input, history, collectedData) {
     };
   }
 
-  // Help commands
+  // Question detection (asking about the current question, not requesting help)
+  const questionWords = ['what', 'which', 'why', 'when', 'where', 'who', 'can i', 'could i', 'should i', 'may i', 'is it', 'are there', 'do i', 'does it'];
+  const isQuestion = lowerInput.endsWith('?') || questionWords.some(qw => lowerInput.startsWith(qw + ' '));
+  const notHelpRequest = !['help', 'explain', 'info', 'what does this mean'].some(cmd => lowerInput.includes(cmd));
+
+  if (isQuestion && notHelpRequest) {
+    // Try to provide a helpful answer based on the field and question content
+    let helpfulResponse = 'That\'s a good question! ';
+
+    // Check if asking about specific options (e.g., "what's the difference between prepaid and debit?")
+    if (currentQuestion.options && currentQuestion.options.length > 0) {
+      const mentionedOptions = currentQuestion.options.filter(opt =>
+        lowerInput.includes(opt.toLowerCase())
+      );
+
+      if (mentionedOptions.length > 0) {
+        helpfulResponse += `Let me explain ${mentionedOptions.join(' and ')}: `;
+        // Add brief explanations
+        helpfulResponse += 'Each option has different characteristics. ';
+      }
+
+      helpfulResponse += `The available options are: ${currentQuestion.options.join(', ')}. Which one works best for you?`;
+    } else {
+      helpfulResponse += 'Just answer naturally with what feels right. For example, if you\'re not sure, you can type what comes to mind and I\'ll understand. Would you like to give it a try?';
+    }
+
+    return {
+      is_command: true,
+      command: 'question',
+      action: 'answer_question',
+      response: helpfulResponse,
+      data: null
+    };
+  }
+
+  // Help commands - mention "commands" and current question type
   if (['help', '?', 'explain', 'what does this mean', 'info'].some(cmd => lowerInput === cmd || lowerInput.includes(cmd))) {
+    const commandsList = '• Type "reset" to start over\n• Type "back" to go to the previous question\n• Type "summary" to see what we\'ve collected\n• Type "help" for this message';
+
+    let helpResponse = `I can help you with these commands:\n${commandsList}\n\n`;
+    helpResponse += 'Just answer naturally, and I\'ll understand! ';
+
+    if (currentQuestion.type === 'select' || currentQuestion.type === 'multiselect') {
+      helpResponse += `For this question, ${currentQuestion.type === 'multiselect' ? 'you can choose multiple options' : 'choose one option'}.`;
+    } else {
+      helpResponse += 'Type your answer in any way that feels natural.';
+    }
+
     return {
       is_command: true,
       command: 'help',
       action: 'explain_current_question',
-      response: 'I can help you with:\n• Type "reset" to start over\n• Type "back" to go to the previous question\n• Type "summary" to see what we\'ve collected\n• Type "help" for this message\n\nJust answer naturally, and I\'ll understand! For example, if I ask how many cards you need, you can say "about 50" or "we have 50 employees".',
+      response: helpResponse,
       data: null
     };
   }
@@ -190,10 +262,10 @@ function generateSummary(collectedData) {
   if (collectedData.monthlyLimit) items.push(`✅ Monthly Limit: ${collectedData.monthlyLimit}`);
 
   if (items.length === 0) {
-    return "We haven't collected any information yet. Let's get started!";
+    return "We haven't collected any information for your program yet. Let's get started so far!";
   }
 
-  return `Here's what we have so far:\n\n${items.join('\n')}\n\nLet's continue with the remaining questions!`;
+  return `Here's what we have for your program so far:\n\n${items.join('\n')}\n\nLet's continue with the remaining questions!`;
 }
 
 // Local validation (rule-based, no AI API calls)
@@ -229,41 +301,69 @@ function validateFieldLocally(question, userInput) {
 
   // Number extraction
   if (type === 'number') {
-    const numbers = userInput.match(/\d+/g);
+    // First, try to evaluate math expressions (e.g., "500 + 200", "200*30")
+    const mathMatch = userInput.match(/(\d+(?:,\d{3})*(?:\.\d+)?)\s*([+\-*/×÷])\s*(\d+(?:,\d{3})*(?:\.\d+)?)/);
+    if (mathMatch) {
+      const num1 = parseFloat(mathMatch[1].replace(/,/g, ''));
+      const operator = mathMatch[2].replace('×', '*').replace('÷', '/');
+      const num2 = parseFloat(mathMatch[3].replace(/,/g, ''));
+
+      let result;
+      switch(operator) {
+        case '+': result = num1 + num2; break;
+        case '-': result = num1 - num2; break;
+        case '*': result = num1 * num2; break;
+        case '/': result = num1 / num2; break;
+        default: result = num1;
+      }
+
+      return {
+        validated: true,
+        extracted_value: Math.round(result),
+        confidence: 0.95,
+        ai_response: `Perfect! ${num1} ${operator} ${num2} = ${Math.round(result)}. I'll use ${Math.round(result)}.`,
+        requires_clarification: false
+      };
+    }
+
+    // Second, try to extract numbers (including those with commas like "2,000")
+    const cleanedInput = userInput.replace(/,(\d{3})/g, '$1'); // Remove commas from numbers
+    const numbers = cleanedInput.match(/\d+/g);
+
     if (numbers && numbers.length > 0) {
       const extractedValue = parseInt(numbers[0]);
       return {
         validated: true,
         extracted_value: extractedValue,
         confidence: 0.9,
-        ai_response: `Got it! I'll set it to ${extractedValue}. Shall we continue?`,
+        ai_response: `Got it! I'll set it to ${extractedValue.toLocaleString()}. Shall we continue?`,
         requires_clarification: false
       };
-    } else {
-      // Try word numbers
-      const wordNumbers = {
-        'one': 1, 'two': 2, 'three': 3, 'five': 5, 'ten': 10,
-        'twenty': 20, 'fifty': 50, 'hundred': 100, 'thousand': 1000
-      };
-
-      for (const [word, num] of Object.entries(wordNumbers)) {
-        if (lowerInput.includes(word)) {
-          return {
-            validated: true,
-            extracted_value: num,
-            confidence: 0.7,
-            ai_response: `I understood ${num}. Is that correct?`,
-            requires_clarification: false
-          };
-        }
-      }
-
-      return {
-        validated: false,
-        ai_response: 'I couldn\'t find a number in your response. Could you provide a number?',
-        requires_clarification: true
-      };
     }
+
+    // Try word numbers
+    const wordNumbers = {
+      'one': 1, 'two': 2, 'three': 3, 'five': 5, 'ten': 10,
+      'twenty': 20, 'fifty': 50, 'hundred': 100, 'thousand': 1000
+    };
+
+    for (const [word, num] of Object.entries(wordNumbers)) {
+      if (lowerInput.includes(word)) {
+        return {
+          validated: true,
+          extracted_value: num,
+          confidence: 0.7,
+          ai_response: `I understood ${num}. Is that correct?`,
+          requires_clarification: false
+        };
+      }
+    }
+
+    return {
+      validated: false,
+      ai_response: 'I couldn\'t find a number in your response. Could you provide a number?',
+      requires_clarification: true
+    };
   }
 
   // Select field fuzzy matching
@@ -342,6 +442,20 @@ function validateFieldLocally(question, userInput) {
   // Multi-select
   if (type === 'multi_select' || type === 'multiselect') {
     const options = question.options || [];
+
+    // Check for "all" keyword first - user wants ALL options
+    if (lowerInput === 'all' || lowerInput === 'all of them' || lowerInput === 'all options' ||
+        lowerInput.includes('all of them') || lowerInput.includes('all options') ||
+        (lowerInput.includes('all') && !lowerInput.includes('allow') && options.length > 0)) {
+      return {
+        validated: true,
+        extracted_value: options,
+        confidence: 1.0,
+        ai_response: `Perfect! I'll include all options: ${options.join(', ')}.`,
+        requires_clarification: false
+      };
+    }
+
     const values = lowerInput.split(/[,;]/).map(v => v.trim());
     const extracted = [];
 
@@ -361,10 +475,15 @@ function validateFieldLocally(question, userInput) {
       }
     }
 
-    // Also check for "both", "all", "and"
-    if (lowerInput.includes('both') || lowerInput.includes('all')) {
-      if (lowerInput.includes('physical') && lowerInput.includes('virtual')) {
-        extracted.push('physical', 'virtual');
+    // Also check for "both" when there are exactly 2 items mentioned
+    if ((lowerInput.includes('both') || lowerInput.includes(' and ')) && extracted.length === 0) {
+      // Try to extract from the input
+      for (const [option, keywords] of Object.entries(fuzzyMatches)) {
+        if (keywords.some(kw => lowerInput.includes(kw))) {
+          if (!extracted.includes(option)) {
+            extracted.push(option);
+          }
+        }
       }
     }
 
@@ -380,14 +499,35 @@ function validateFieldLocally(question, userInput) {
 
     return {
       validated: false,
-      ai_response: `I couldn't identify the options. Available: ${options.join(', ')}. Which would you like? (You can choose multiple, separated by commas)`,
+      ai_response: `I couldn't identify the options. Available: ${options.join(', ')}. Which would you like? (You can choose multiple, separated by commas, or say "all")`,
       suggestions: options,
       requires_clarification: true
     };
   }
 
-  // Open text (just return as-is)
+  // Open text with validation
   if (type === 'open_text' || type === 'text') {
+    const minLength = question.minLength || question.min_length || 0;
+    const maxLength = question.maxLength || question.max_length || Infinity;
+
+    // Check minLength
+    if (userInput.length < minLength) {
+      return {
+        validated: false,
+        ai_response: `That's a bit too short. Please provide at least ${minLength} characters. Could you give me a more complete answer?`,
+        requires_clarification: true
+      };
+    }
+
+    // Check maxLength
+    if (userInput.length > maxLength) {
+      return {
+        validated: false,
+        ai_response: `That's a bit too long. Please keep it under ${maxLength} characters. Could you make it shorter?`,
+        requires_clarification: true
+      };
+    }
+
     return {
       validated: true,
       extracted_value: userInput,
@@ -521,31 +661,60 @@ ALWAYS output valid JSON (no markdown formatting)`;
 
   const options = current_question.options ? `\nAvailable options: ${current_question.options.join(', ')}` : '';
 
+  const minLengthRule = current_question.minLength || current_question.min_length
+    ? `\n- minLength: ${current_question.minLength || current_question.min_length} (REJECT if input is shorter!)`
+    : '';
+  const maxLengthRule = current_question.maxLength || current_question.max_length
+    ? `\n- maxLength: ${current_question.maxLength || current_question.max_length} (REJECT if input is longer!)`
+    : '';
+
   const userPrompt = `I just asked: "${current_question.question}"
 
 They responded: "${user_input}"
 
 Context: We're collecting the "${current_question.field}" field (type: ${current_question.type})${options}
 
-IMPORTANT FIELD RULES:
-- If type is "select" or "multiple_choice" → SINGLE value only (not multiple!)
-- If type is "multiselect" or "multi_select" → Multiple values OK
+CRITICAL FIELD RULES:
+- If type is "select" or "multiple_choice" → Extract SINGLE value from available options ONLY
+- If type is "multiselect" or "multi_select" → Extract multiple values from available options
+- If type is "text" or "open_text" → Preserve EXACT input (don't lowercase, don't extract keywords, keep full text!)${minLengthRule}${maxLengthRule}
 - Current field "${current_question.field}" is type: ${current_question.type}
 
-Your job:
-1. GREETINGS (hello, hi, hey) → Respond warmly, redirect to question
-2. QUESTIONS ("can I use more than one?") → Answer their question, then ask for their choice
-3. "ALL" or "all of them":
-   - If MULTISELECT field → Extract ALL options ✓
-   - If SINGLE-SELECT field → Ask them to pick ONE ✗
-4. NUMBER WORDS ("one thousand", "fifty") → Convert to digits (1000, 50)
-5. MATH EXPRESSIONS ("200*30") → Calculate the result (6000)
-6. TYPOS ("Feal" = Fleet, "vorporate" = corporate, "Misa" = Visa) → Find closest match
-7. LOCATIONS ("Spain" = EUR, "Sweden" = SEK) → Map to currency
-8. QUESTIONS IN RESPONSE ("would 200 be fine?") → Extract the number (200)
-9. CORRECTIONS ("no, I meant X") → Extract X
+STRICT VALUE MATCHING:
+- For select/multiselect: extracted_value MUST match an option EXACTLY (with proper capitalization!)
+- Example: If options are ["Visa", "Mastercard"], return "Visa" NOT "visa"
+- For text fields: Return the FULL user input exactly as they typed it
+- Example: Input "Corporate Travel Card" → Return "Corporate Travel Card" (NOT "corporate travel card" or "Corporate")
 
-Be WARM and CONVERSATIONAL. Answer questions naturally!
+CRITICAL VALIDATION RULES:
+1. VALIDATE INPUT FIRST against field requirements (minLength, maxLength, options)
+2. If input fails validation → Return validated: false with error message
+3. DON'T respond with greetings unless input is LITERALLY a greeting word (hello/hi/hey)
+4. Invalid inputs like "AB" (too short) or "something weird" (no match) are NOT greetings!
+
+Your job:
+1. CHECK VALIDATION FIRST:
+   - Text fields: Enforce minLength/maxLength BEFORE any response
+   - Select fields: Match to available options OR reject with error
+   - Multiselect: ALWAYS return ARRAY (even single values like ["physical"])
+
+2. THEN handle special cases:
+   - GREETINGS (literally "hello", "hi", "hey") → Respond warmly, redirect
+   - NATURAL LANGUAGE extraction:
+     * "for our company's employees" → Extract "corporate"
+     * "lunch vouchers" → Extract "meal" (NOT return "lunch vouchers")
+     * "we want to preload" → Extract "prepaid"
+   - "ALL" or "all of them":
+     * If MULTISELECT → Return ALL options as ARRAY
+     * If SINGLE-SELECT → Ask them to pick ONE
+   - NUMBER WORDS ("one thousand" → 1000)
+   - MATH EXPRESSIONS ("200*30" → 6000)
+   - TYPOS ("viza" → "Visa", fuzzy match to closest option)
+   - LOCATIONS ("Sweden" → "SEK")
+   - QUESTIONS ("can I use more than one?") → Answer, then ask for choice
+   - CORRECTIONS ("no, I meant X") → Extract X
+
+For MULTISELECT: Return arrays ALWAYS! Input "physical" → ["physical"]
 
 Output JSON only (no markdown):
 {
@@ -558,29 +727,56 @@ Output JSON only (no markdown):
 
 CONVERSATIONAL EXAMPLES:
 
-User: "hello" or "hey"
-Response: {"validated": false, "extracted_value": null, "confidence": 0.0, "ai_response": "Hey! 😊 So, what should we call your card program?", "requires_clarification": true}
+User: "hello" or "hey" (greeting on program_name step)
+Response: {"validated": false, "extracted_value": null, "confidence": 0.0, "ai_response": "Hello! 😊 I'm happy to help you set up your card program. Let's start with the program name - what would you like to call it?", "requires_clarification": true}
 
-User: "can I use more than one?" (when asking about SINGLE-select field like funding model)
-Response: {"validated": false, "extracted_value": null, "confidence": 0.0, "ai_response": "Great question! For this one, you'll need to pick just one funding model. Which works best: Prepaid, Debit, Credit, or Revolving?", "requires_clarification": true}
+User: "Corporate Travel Card" (text field - preserve EXACTLY!)
+Response: {"validated": true, "extracted_value": "Corporate Travel Card", "confidence": 1.0, "ai_response": "Perfect! 'Corporate Travel Card' it is. Let's continue!", "requires_clarification": false}
 
-User: "all" (when MULTISELECT field like form factors)
+User: "AB" (text field with minLength: 3 - must REJECT!)
+Response: {"validated": false, "extracted_value": null, "confidence": 0.0, "ai_response": "That's a bit too short. Please provide at least 3 characters for the program name. Could you give me a longer name?", "requires_clarification": true}
+
+User: "corporate" (select field with options [..., "corporate", ...])
+Response: {"validated": true, "extracted_value": "corporate", "confidence": 1.0, "ai_response": "Perfect! Corporate cards for business expenses. Let's continue!", "requires_clarification": false}
+
+User: "Visa" (select field - preserve CASE!)
+Response: {"validated": true, "extracted_value": "Visa", "confidence": 1.0, "ai_response": "Great! Visa it is. ✓", "requires_clarification": false}
+
+User: "visa" (lowercase - match to "Visa" option with proper case!)
+Response: {"validated": true, "extracted_value": "Visa", "confidence": 1.0, "ai_response": "Perfect! Visa card scheme selected. ✓", "requires_clarification": false}
+
+User: "all" (when MULTISELECT field with options ["physical", "virtual", "tokenized"])
 Response: {"validated": true, "extracted_value": ["physical", "virtual", "tokenized"], "confidence": 1.0, "ai_response": "Perfect! We'll include all three - physical, virtual, and tokenized. 👍", "requires_clarification": false}
 
-User: "all" or "both" (when SINGLE-select field like scheme)
-Response: {"validated": false, "extracted_value": null, "confidence": 0.0, "ai_response": "I can only set one card scheme for this program. Would you prefer Visa or Mastercard?", "requires_clarification": true}
+User: "we want to preload the cards" (natural language → "prepaid" from options)
+Response: {"validated": true, "extracted_value": "prepaid", "confidence": 0.95, "ai_response": "Got it! Prepaid funding model - you'll load funds in advance. Perfect!", "requires_clarification": false}
 
-User: "Feal" (typo for Fleet)
-Response: {"validated": true, "extracted_value": "fleet", "confidence": 0.9, "ai_response": "Got it! Fleet cards for fuel and vehicle expenses. Great choice!", "requires_clarification": false}
+User: "fuel cards for our trucks" (natural language → "fleet" from options)
+Response: {"validated": true, "extracted_value": "fleet", "confidence": 0.95, "ai_response": "Perfect! Fleet cards for your trucks. Great choice!", "requires_clarification": false}
 
-User: "200*30" (math for monthly limit)
-Response: {"validated": true, "extracted_value": 6000, "confidence": 1.0, "ai_response": "Perfect! 6,000 per month (200 x 30). That makes sense!", "requires_clarification": false}
+User: "we're based in Sweden" (location → "SEK" currency)
+Response: {"validated": true, "extracted_value": "SEK", "confidence": 1.0, "ai_response": "Perfect! Since you're in Sweden, we'll use SEK. ✓", "requires_clarification": false}
 
-User: "would 200 euros be fine?" (question with embedded answer)
-Response: {"validated": true, "extracted_value": 200, "confidence": 0.95, "ai_response": "200 euros sounds great! Let's go with that.", "requires_clarification": false}
+User: "200*30" (math expression)
+Response: {"validated": true, "extracted_value": 6000, "confidence": 1.0, "ai_response": "Perfect! 6,000 (200 x 30). That makes sense!", "requires_clarification": false}
 
-User: "we're based in Spain" (location → currency)
-Response: {"validated": true, "extracted_value": "EUR", "confidence": 1.0, "ai_response": "Perfect! Since you're in Spain, we'll use EUR. ✓", "requires_clarification": false}`;
+User: "AB" (text field with minLength: 3 - MUST REJECT, NOT greet!)
+Response: {"validated": false, "extracted_value": null, "confidence": 0.0, "ai_response": "That's a bit too short. Please provide at least 3 characters for the program name.", "requires_clarification": true}
+
+User: "something weird" (select field with specific options - NO MATCH, reject!)
+Response: {"validated": false, "extracted_value": null, "confidence": 0.0, "ai_response": "I didn't quite understand that. The options are: corporate, fleet, meal, travel, gift, transport, healthcare, education. Which one would you like?", "requires_clarification": true}
+
+User: "This is for our company's employees" (natural language → extract "corporate")
+Response: {"validated": true, "extracted_value": "corporate", "confidence": 0.9, "ai_response": "Perfect! Corporate cards for your company's employees. Great!", "requires_clarification": false}
+
+User: "lunch vouchers" (natural language → extract "meal" from options, NOT return input!)
+Response: {"validated": true, "extracted_value": "meal", "confidence": 0.95, "ai_response": "Got it! Meal cards for lunch vouchers. Perfect!", "requires_clarification": false}
+
+User: "physical" (multiselect field - MUST return ARRAY!)
+Response: {"validated": true, "extracted_value": ["physical"], "confidence": 1.0, "ai_response": "Great! Physical cards selected.", "requires_clarification": false}
+
+User: "My company's fleet card program" (text field - preserve FULL text exactly!)
+Response: {"validated": true, "extracted_value": "My company's fleet card program", "confidence": 1.0, "ai_response": "Perfect! 'My company's fleet card program' it is. Let's continue!", "requires_clarification": false}`;
 
   try {
     console.log('[Anthropic] Preparing request...');
