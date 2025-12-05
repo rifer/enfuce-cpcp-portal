@@ -215,13 +215,19 @@ function processCommand(input, history, collectedData, currentQuestion = {}) {
     };
   }
 
-  // Skip command
-  if (['skip', 'skip this', 'next'].some(cmd => lowerInput === cmd)) {
+  // Skip command - expanded to include more variations
+  const skipPhrases = [
+    'skip', 'skip this', 'next', 'pass', 'no', 'none', 'nope',
+    'skip it', 'pass this', 'not now', 'later', 'i don\'t know',
+    'not sure', 'don\'t know'
+  ];
+
+  if (skipPhrases.some(cmd => lowerInput === cmd || lowerInput === cmd + '.')) {
     return {
       is_command: true,
       command: 'skip',
       action: 'skip_question',
-      response: 'Okay, skipping this question.',
+      response: 'No problem, we can skip this for now.',
       data: { skip: true }
     };
   }
@@ -293,6 +299,111 @@ async function validateLocally(action, context) {
   };
 }
 
+// Helper: Calculate Levenshtein distance for typo correction
+function levenshteinDistance(str1, str2) {
+  const matrix = [];
+  for (let i = 0; i <= str2.length; i++) {
+    matrix[i] = [i];
+  }
+  for (let j = 0; j <= str1.length; j++) {
+    matrix[0][j] = j;
+  }
+  for (let i = 1; i <= str2.length; i++) {
+    for (let j = 1; j <= str1.length; j++) {
+      if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        );
+      }
+    }
+  }
+  return matrix[str2.length][str1.length];
+}
+
+// Helper: Find closest match using fuzzy matching
+function findClosestMatch(input, options, threshold = 2) {
+  const lowerInput = input.toLowerCase();
+  let bestMatch = null;
+  let bestDistance = Infinity;
+
+  for (const option of options) {
+    const distance = levenshteinDistance(lowerInput, option.toLowerCase());
+    if (distance < bestDistance && distance <= threshold) {
+      bestDistance = distance;
+      bestMatch = option;
+    }
+  }
+
+  return bestMatch;
+}
+
+// Helper: Parse written numbers like "two hundred", "one thousand"
+function parseWrittenNumber(text) {
+  const lowerText = text.toLowerCase();
+
+  // Handle compound numbers like "two hundred", "one thousand", "five hundred"
+  const compoundPattern = /(one|two|three|four|five|six|seven|eight|nine|ten)\s+(hundred|thousand)/;
+  const compoundMatch = lowerText.match(compoundPattern);
+
+  if (compoundMatch) {
+    const multipliers = {
+      'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+      'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10
+    };
+    const scales = { 'hundred': 100, 'thousand': 1000 };
+
+    const multiplier = multipliers[compoundMatch[1]] || 1;
+    const scale = scales[compoundMatch[2]] || 1;
+    return multiplier * scale;
+  }
+
+  // Simple word numbers
+  const wordNumbers = {
+    'zero': 0, 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+    'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+    'twenty': 20, 'thirty': 30, 'forty': 40, 'fifty': 50,
+    'hundred': 100, 'thousand': 1000, 'million': 1000000
+  };
+
+  for (const [word, value] of Object.entries(wordNumbers)) {
+    if (lowerText.includes(word)) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
+// Helper: Map locations to currencies
+function mapLocationToCurrency(location) {
+  const locationMap = {
+    // Eurozone countries
+    'italy': 'EUR', 'spain': 'EUR', 'france': 'EUR', 'germany': 'EUR',
+    'netherlands': 'EUR', 'belgium': 'EUR', 'austria': 'EUR', 'portugal': 'EUR',
+    'greece': 'EUR', 'ireland': 'EUR', 'finland': 'EUR', 'europe': 'EUR',
+
+    // Other currencies
+    'usa': 'USD', 'america': 'USD', 'united states': 'USD',
+    'uk': 'GBP', 'britain': 'GBP', 'england': 'GBP', 'united kingdom': 'GBP',
+    'sweden': 'SEK', 'norway': 'NOK', 'denmark': 'DKK',
+    'switzerland': 'CHF', 'poland': 'PLN', 'czech': 'CZK',
+    'hungary': 'HUF'
+  };
+
+  const lowerLocation = location.toLowerCase();
+  for (const [country, currency] of Object.entries(locationMap)) {
+    if (lowerLocation.includes(country)) {
+      return currency;
+    }
+  }
+
+  return null;
+}
+
 // Validate field locally without AI
 function validateFieldLocally(question, userInput) {
   const field = question.field;
@@ -326,7 +437,19 @@ function validateFieldLocally(question, userInput) {
       };
     }
 
-    // Second, try to extract numbers (including those with commas like "2,000")
+    // Second, try written numbers first (e.g., "two hundred", "one thousand")
+    const writtenNumber = parseWrittenNumber(userInput);
+    if (writtenNumber !== null) {
+      return {
+        validated: true,
+        extracted_value: writtenNumber,
+        confidence: 0.95,
+        ai_response: `Awesome, ${writtenNumber.toLocaleString()} cards it is! 👍 And what daily spending limit would you like to set for each card (in the selected currency)?`,
+        requires_clarification: false
+      };
+    }
+
+    // Third, try to extract numbers (including those with commas like "2,000")
     const cleanedInput = userInput.replace(/,(\d{3})/g, '$1'); // Remove commas from numbers
     const numbers = cleanedInput.match(/\d+/g);
 
@@ -341,7 +464,7 @@ function validateFieldLocally(question, userInput) {
       };
     }
 
-    // Try word numbers
+    // Legacy word number support (for simple cases)
     const wordNumbers = {
       'one': 1, 'two': 2, 'three': 3, 'five': 5, 'ten': 10,
       'twenty': 20, 'fifty': 50, 'hundred': 100, 'thousand': 1000
@@ -370,6 +493,20 @@ function validateFieldLocally(question, userInput) {
   if (type === 'select' || type === 'multiple_choice') {
     const options = question.options || [];
 
+    // Special handling for currency field - check location mapping
+    if (field === 'currency') {
+      const mappedCurrency = mapLocationToCurrency(userInput);
+      if (mappedCurrency && options.includes(mappedCurrency)) {
+        return {
+          validated: true,
+          extracted_value: mappedCurrency,
+          confidence: 0.95,
+          ai_response: `Perfect! Going with ${mappedCurrency}.`,
+          requires_clarification: false
+        };
+      }
+    }
+
     // Try exact match first
     const exactMatch = options.find(opt =>
       opt.toLowerCase() === lowerInput ||
@@ -383,6 +520,18 @@ function validateFieldLocally(question, userInput) {
         extracted_value: exactMatch,
         confidence: 0.95,
         ai_response: `Got it! ${exactMatch} it is.`,
+        requires_clarification: false
+      };
+    }
+
+    // Try typo correction using Levenshtein distance
+    const typoMatch = findClosestMatch(userInput, options, 2);
+    if (typoMatch) {
+      return {
+        validated: true,
+        extracted_value: typoMatch,
+        confidence: 0.85,
+        ai_response: `I think you meant ${typoMatch}? Going with that!`,
         requires_clarification: false
       };
     }
@@ -491,14 +640,21 @@ function validateFieldLocally(question, userInput) {
     const options = question.options || [];
 
     // Check for "all" keyword first - user wants ALL options
-    if (lowerInput === 'all' || lowerInput === 'all of them' || lowerInput === 'all options' ||
-        lowerInput.includes('all of them') || lowerInput.includes('all options') ||
-        (lowerInput.includes('all') && !lowerInput.includes('allow') && options.length > 0)) {
+    const allPhrases = [
+      'all', 'all of them', 'all options', 'all of those', 'them all',
+      'everything', 'every option', 'include all', 'all three', 'all 3',
+      'every one', 'each one'
+    ];
+
+    const wantsAll = allPhrases.some(phrase => lowerInput.includes(phrase)) &&
+                     !lowerInput.includes('allow');  // Avoid matching "allow"
+
+    if (wantsAll && options.length > 0) {
       return {
         validated: true,
         extracted_value: options,
         confidence: 1.0,
-        ai_response: `Got it! Including everything: ${options.slice(0, 3).join(', ')}${options.length > 3 ? ` and ${options.length - 3} more` : ''}.`,
+        ai_response: `Perfect! I'll include all of them: ${options.join(', ')}.`,
         requires_clarification: false
       };
     }

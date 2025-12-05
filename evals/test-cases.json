@@ -449,6 +449,168 @@
       "expected_validation": true,
       "expected_response_contains": ["tokenized"],
       "description": "Form factor: Apple Pay → tokenized"
+    },
+    {
+      "id": "typo-travel",
+      "category": "typo_correction",
+      "step": "program_type",
+      "input": "tarvel",
+      "expected_validation": true,
+      "expected_value": "travel",
+      "description": "Typo correction: tarvel → travel"
+    },
+    {
+      "id": "typo-discover",
+      "category": "typo_correction",
+      "step": "card_scheme",
+      "input": "discrover",
+      "expected_validation": true,
+      "expected_value": "Discover",
+      "description": "Typo correction: discrover → Discover"
+    },
+    {
+      "id": "typo-corporate",
+      "category": "typo_correction",
+      "step": "program_type",
+      "input": "coroprate",
+      "expected_validation": true,
+      "expected_value": "corporate",
+      "description": "Typo correction: coroprate → corporate"
+    },
+    {
+      "id": "location-italy",
+      "category": "location_mapping",
+      "step": "currency",
+      "input": "We are based in Italy",
+      "expected_validation": true,
+      "expected_value": "EUR",
+      "description": "Location mapping: Italy → EUR"
+    },
+    {
+      "id": "location-usa",
+      "category": "location_mapping",
+      "step": "currency",
+      "input": "United States",
+      "expected_validation": true,
+      "expected_value": "USD",
+      "description": "Location mapping: USA → USD"
+    },
+    {
+      "id": "location-spain",
+      "category": "location_mapping",
+      "step": "currency",
+      "input": "Spain",
+      "expected_validation": true,
+      "expected_value": "EUR",
+      "description": "Location mapping: Spain → EUR"
+    },
+    {
+      "id": "location-norway",
+      "category": "location_mapping",
+      "step": "currency",
+      "input": "We're in Norway",
+      "expected_validation": true,
+      "expected_value": "NOK",
+      "description": "Location mapping: Norway → NOK"
+    },
+    {
+      "id": "written-two-hundred",
+      "category": "number_extraction",
+      "step": "estimated_cards",
+      "input": "two hundred",
+      "expected_validation": true,
+      "expected_value": 200,
+      "description": "Written number: two hundred → 200"
+    },
+    {
+      "id": "written-one-thousand",
+      "category": "number_extraction",
+      "step": "estimated_cards",
+      "input": "one thousand",
+      "expected_validation": true,
+      "expected_value": 1000,
+      "description": "Written number: one thousand → 1000"
+    },
+    {
+      "id": "written-five-hundred",
+      "category": "number_extraction",
+      "step": "daily_limit",
+      "input": "five hundred",
+      "expected_validation": true,
+      "expected_value": 500,
+      "description": "Written number: five hundred → 500"
+    },
+    {
+      "id": "written-in-sentence",
+      "category": "number_extraction",
+      "step": "estimated_cards",
+      "input": "about two hundred in a first try",
+      "expected_validation": true,
+      "expected_value": 200,
+      "description": "Written number in sentence: two hundred → 200"
+    },
+    {
+      "id": "multiselect-them-all",
+      "category": "multiselect",
+      "step": "form_factor",
+      "input": "them all is fine",
+      "expected_validation": true,
+      "expected_response_contains": ["physical", "virtual"],
+      "description": "Multiselect all: them all → all options"
+    },
+    {
+      "id": "multiselect-everything",
+      "category": "multiselect",
+      "step": "form_factor",
+      "input": "everything",
+      "expected_validation": true,
+      "expected_response_contains": ["physical", "virtual"],
+      "description": "Multiselect all: everything → all options"
+    },
+    {
+      "id": "multiselect-every-one",
+      "category": "multiselect",
+      "step": "form_factor",
+      "input": "every one",
+      "expected_validation": true,
+      "expected_response_contains": ["physical", "virtual"],
+      "description": "Multiselect all: every one → all options"
+    },
+    {
+      "id": "skip-no",
+      "category": "commands",
+      "step": "daily_limit",
+      "input": "no",
+      "expected_validation": false,
+      "expected_command": "skip",
+      "description": "Skip command: no → skip"
+    },
+    {
+      "id": "skip-pass",
+      "category": "commands",
+      "step": "daily_limit",
+      "input": "pass",
+      "expected_validation": false,
+      "expected_command": "skip",
+      "description": "Skip command: pass → skip"
+    },
+    {
+      "id": "skip-not-now",
+      "category": "commands",
+      "step": "monthly_limit",
+      "input": "not now",
+      "expected_validation": false,
+      "expected_command": "skip",
+      "description": "Skip command: not now → skip"
+    },
+    {
+      "id": "skip-dont-know",
+      "category": "commands",
+      "step": "daily_limit",
+      "input": "i don't know",
+      "expected_validation": false,
+      "expected_command": "skip",
+      "description": "Skip command: i don't know → skip"
     }
   ]
 }
