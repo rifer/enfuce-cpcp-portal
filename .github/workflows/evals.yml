@@ -160,38 +160,31 @@ jobs:
             // Local provider results
             if (localExists) {
               const local = JSON.parse(fs.readFileSync(localPath, 'utf8'));
-              body += `### 🔵 Local Provider
-**Overall:** ${local.passed}/${local.total} tests passed (${local.metrics.validation_accuracy.toFixed(1)}%)
-
-**Metrics:**
-- ⏱️ Avg Response Time: ${local.metrics.avg_response_time.toFixed(0)}ms
-- 🔤 Typo Correction: ${local.metrics.typo_correction_rate.toFixed(1)}%
-- ⌨️ Command Recognition: ${local.metrics.command_recognition_rate.toFixed(1)}%
-- 🗣️ Natural Language: ${local.metrics.natural_language_understanding.toFixed(1)}%
-
-${local.failed > 0 ? `⚠️ **${local.failed} tests failed** - Check artifacts for failures-local.txt` : '✅ All tests passed!'}
-
-`;
+              body += '### 🔵 Local Provider\n';
+              body += `**Overall:** ${local.passed}/${local.total} tests passed (${local.metrics.validation_accuracy.toFixed(1)}%)\n\n`;
+              body += '**Metrics:**\n';
+              body += `- ⏱️ Avg Response Time: ${local.metrics.avg_response_time.toFixed(0)}ms\n`;
+              body += `- 🔤 Typo Correction: ${local.metrics.typo_correction_rate.toFixed(1)}%\n`;
+              body += `- ⌨️ Command Recognition: ${local.metrics.command_recognition_rate.toFixed(1)}%\n`;
+              body += `- 🗣️ Natural Language: ${local.metrics.natural_language_understanding.toFixed(1)}%\n\n`;
+              body += local.failed > 0 ? `⚠️ **${local.failed} tests failed** - Check artifacts for failures-local.txt\n\n` : '✅ All tests passed!\n\n';
             } else {
-              body += `### 🔵 Local Provider\n⚠️ Tests did not complete\n\n`;
+              body += '### 🔵 Local Provider\n⚠️ Tests did not complete\n\n';
             }
 
             // Anthropic provider results
             if (anthropicExists) {
               const anthropic = JSON.parse(fs.readFileSync(anthropicPath, 'utf8'));
-              body += `### 🟢 Anthropic Provider
-**Overall:** ${anthropic.passed}/${anthropic.total} tests passed (${anthropic.metrics.validation_accuracy.toFixed(1)}%)
-
-**Metrics:**
-- ⏱️ Avg Response Time: ${anthropic.metrics.avg_response_time.toFixed(0)}ms
-- 🔤 Typo Correction: ${anthropic.metrics.typo_correction_rate.toFixed(1)}%
-- ⌨️ Command Recognition: ${anthropic.metrics.command_recognition_rate.toFixed(1)}%
-- 🗣️ Natural Language: ${anthropic.metrics.natural_language_understanding.toFixed(1)}%
-
-${anthropic.failed > 0 ? `⚠️ **${anthropic.failed} tests failed** - Check artifacts for failures-anthropic.txt` : '✅ All tests passed!'}
-`;
+              body += '### 🟢 Anthropic Provider\n';
+              body += `**Overall:** ${anthropic.passed}/${anthropic.total} tests passed (${anthropic.metrics.validation_accuracy.toFixed(1)}%)\n\n`;
+              body += '**Metrics:**\n';
+              body += `- ⏱️ Avg Response Time: ${anthropic.metrics.avg_response_time.toFixed(0)}ms\n`;
+              body += `- 🔤 Typo Correction: ${anthropic.metrics.typo_correction_rate.toFixed(1)}%\n`;
+              body += `- ⌨️ Command Recognition: ${anthropic.metrics.command_recognition_rate.toFixed(1)}%\n`;
+              body += `- 🗣️ Natural Language: ${anthropic.metrics.natural_language_understanding.toFixed(1)}%\n\n`;
+              body += anthropic.failed > 0 ? `⚠️ **${anthropic.failed} tests failed** - Check artifacts for failures-anthropic.txt\n` : '✅ All tests passed!\n';
             } else {
-              body += `### 🟢 Anthropic Provider\n⚠️ Tests did not complete\n`;
+              body += '### 🟢 Anthropic Provider\n⚠️ Tests did not complete\n';
             }
 
             body += `\n---\n📦 Download detailed failure reports from workflow artifacts`;
