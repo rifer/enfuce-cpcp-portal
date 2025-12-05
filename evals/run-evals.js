@@ -16,9 +16,10 @@ const __dirname = path.dirname(__filename);
 
 // Configuration
 const API_URL = process.env.API_URL || 'http://localhost:5173';
-const AI_PROVIDER = process.env.AI_PROVIDER || 'local';
+const AI_PROVIDER = process.env.AI_PROVIDER || 'both'; // 'local', 'anthropic', or 'both'
 const OUTPUT_DIR = path.join(__dirname, 'results');
 const TEST_CASES_FILE = path.join(__dirname, 'test-cases.json');
+const FAILURES_DIR = path.join(__dirname, 'failures');
 
 // Colors for console output
 const colors = {
@@ -83,7 +84,7 @@ function getQuestionConfig(field) {
 /**
  * Call the AI validation API
  */
-async function callAIValidationAPI(input, step, conversationHistory = []) {
+async function callAIValidationAPI(input, step, conversationHistory = [], provider = 'local') {
   const startTime = Date.now();
 
   try {
@@ -96,7 +97,7 @@ async function callAIValidationAPI(input, step, conversationHistory = []) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        provider: AI_PROVIDER,
+        provider: provider,
         action: 'validate',
         context: {
           current_question: getQuestionConfig(step),
@@ -166,8 +167,8 @@ function arraysEqual(a, b) {
 /**
  * Run a single test case
  */
-async function runTestCase(testCase) {
-  console.log(`\n${colors.cyan}Running: ${testCase.id}${colors.reset}`);
+async function runTestCase(testCase, provider = 'local') {
+  console.log(`\n${colors.cyan}Running: ${testCase.id}${colors.reset} ${colors.gray}(${provider})${colors.reset}`);
   console.log(`${colors.gray}  Input: "${testCase.input}"${colors.reset}`);
   console.log(`${colors.gray}  Step: ${testCase.step}${colors.reset}`);
 
@@ -178,14 +179,16 @@ async function runTestCase(testCase) {
     passed: false,
     checks: [],
     duration: 0,
-    error: null
+    error: null,
+    provider: provider
   };
 
   try {
     const apiResult = await callAIValidationAPI(
       testCase.input,
       testCase.step,
-      []
+      [],
+      provider
     );
 
     result.duration = apiResult.duration;
@@ -372,7 +375,7 @@ function printSummary() {
 /**
  * Save results to JSON file
  */
-function saveResults() {
+function saveResults(provider = null) {
   try {
     // Ensure output directory exists
     if (!fs.existsSync(OUTPUT_DIR)) {
@@ -381,7 +384,8 @@ function saveResults() {
     }
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `eval-results-${timestamp}.json`;
+    const providerSuffix = provider ? `-${provider}` : '';
+    const filename = `eval-results${providerSuffix}-${timestamp}.json`;
     const filepath = path.join(OUTPUT_DIR, filename);
 
     // Save timestamped results
@@ -389,7 +393,8 @@ function saveResults() {
     console.log(`${colors.cyan}Results saved to: ${filepath}${colors.reset}`);
 
     // Also save latest.json for easy access (this is what CI/CD reads)
-    const latestPath = path.join(OUTPUT_DIR, 'latest.json');
+    const latestFilename = provider ? `latest-${provider}.json` : 'latest.json';
+    const latestPath = path.join(OUTPUT_DIR, latestFilename);
     fs.writeFileSync(latestPath, JSON.stringify(results, null, 2));
     console.log(`${colors.cyan}Latest results saved to: ${latestPath}${colors.reset}`);
 
@@ -399,6 +404,90 @@ function saveResults() {
     console.error(`${colors.red}Output directory: ${OUTPUT_DIR}${colors.reset}`);
     console.error(`${colors.red}Current directory: ${process.cwd()}${colors.reset}`);
     console.error(error.stack);
+    return false;
+  }
+}
+
+/**
+ * Save failures-only report for easy copy/paste
+ */
+function saveFailuresOnly(provider) {
+  try {
+    // Ensure failures directory exists
+    if (!fs.existsSync(FAILURES_DIR)) {
+      fs.mkdirSync(FAILURES_DIR, { recursive: true });
+    }
+
+    // Filter for failed tests only
+    const failures = results.test_details.filter(test => !test.passed);
+
+    if (failures.length === 0) {
+      console.log(`${colors.green}✓ No failures for ${provider} provider!${colors.reset}`);
+      return true;
+    }
+
+    // Create readable failure report
+    const failureReport = {
+      provider: provider,
+      timestamp: new Date().toISOString(),
+      summary: {
+        total_tests: results.total,
+        failed: results.failed,
+        errors: results.errors,
+        accuracy: results.metrics.validation_accuracy
+      },
+      failures: failures.map(f => ({
+        id: f.id,
+        category: f.category,
+        description: f.description,
+        error: f.error,
+        failed_checks: f.checks.filter(c => !c.passed),
+        duration_ms: f.duration
+      }))
+    };
+
+    // Save to failures directory
+    const filename = `failures-${provider}.txt`;
+    const filepath = path.join(FAILURES_DIR, filename);
+
+    // Create human-readable format for easy copy/paste
+    let output = `FAILURES REPORT - ${provider.toUpperCase()} PROVIDER\n`;
+    output += `Generated: ${new Date().toISOString()}\n`;
+    output += `=`.repeat(80) + `\n\n`;
+    output += `Summary:\n`;
+    output += `  Total Tests: ${failureReport.summary.total_tests}\n`;
+    output += `  Failed: ${failureReport.summary.failed}\n`;
+    output += `  Errors: ${failureReport.summary.errors}\n`;
+    output += `  Accuracy: ${failureReport.summary.accuracy.toFixed(2)}%\n\n`;
+    output += `=`.repeat(80) + `\n\n`;
+
+    failureReport.failures.forEach((failure, index) => {
+      output += `${index + 1}. ${failure.id}\n`;
+      output += `   Category: ${failure.category}\n`;
+      output += `   Description: ${failure.description}\n`;
+      if (failure.error) {
+        output += `   Error: ${failure.error}\n`;
+      }
+      if (failure.failed_checks.length > 0) {
+        output += `   Failed Checks:\n`;
+        failure.failed_checks.forEach(check => {
+          output += `     - ${check.name}: Expected ${JSON.stringify(check.expected)}, Got ${JSON.stringify(check.actual)}\n`;
+        });
+      }
+      output += `\n`;
+    });
+
+    fs.writeFileSync(filepath, output);
+    console.log(`${colors.yellow}Failures report saved to: ${filepath}${colors.reset}`);
+    console.log(`${colors.yellow}You can easily copy/paste from this file${colors.reset}`);
+
+    // Also save JSON version
+    const jsonFilepath = path.join(FAILURES_DIR, `failures-${provider}.json`);
+    fs.writeFileSync(jsonFilepath, JSON.stringify(failureReport, null, 2));
+
+    return true;
+  } catch (error) {
+    console.error(`${colors.red}ERROR: Failed to save failures report:${colors.reset}`, error.message);
     return false;
   }
 }
@@ -519,7 +608,12 @@ async function main() {
 
   calculateMetrics();
   printSummary();
-  saveResults();
+
+  // Determine provider name for file naming
+  const providerName = AI_PROVIDER === 'both' ? 'combined' : AI_PROVIDER;
+
+  saveResults(providerName);
+  saveFailuresOnly(providerName);
 
   // Exit with success if accuracy meets threshold (85%)
   const ACCURACY_THRESHOLD = 85;
