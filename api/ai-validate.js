@@ -617,23 +617,6 @@ function validateFieldLocally(question, userInput) {
       };
     }
 
-    // Try partial string match in options (more lenient)
-    const partialMatch = options.find(opt => {
-      const optLower = opt.toLowerCase();
-      const words = lowerInput.split(/\s+/);
-      return words.some(word => word.length > 2 && optLower.includes(word));
-    });
-
-    if (partialMatch) {
-      return {
-        validated: true,
-        extracted_value: partialMatch,
-        confidence: 0.75,
-        ai_response: `I think you meant ${partialMatch}?`,
-        requires_clarification: false
-      };
-    }
-
     // More helpful failure with smart suggestions
     const friendlyMessages = [
       `Let's try this differently - just type one of these: ${options.join(', ')}`,
