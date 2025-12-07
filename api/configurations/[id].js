@@ -124,7 +124,7 @@ async function handleUpdateConfiguration(req, res, id) {
 
   // Validate enum fields if provided (case-insensitive)
   if (updateData.program_type) {
-    const validProgramTypes = ['corporate', 'fleet', 'meal', 'travel', 'gift', 'transport'];
+    const validProgramTypes = ['corporate', 'fleet', 'meal', 'travel', 'gift', 'transport', 'healthcare', 'education'];
     if (!validProgramTypes.includes(updateData.program_type?.toLowerCase())) {
       return res.status(400).json({
         success: false,

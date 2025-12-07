@@ -563,13 +563,15 @@ function validateFieldLocally(question, userInput) {
 
     // Expanded fuzzy matching with many more keywords
     const fuzzyMatches = {
-      // Card types
+      // Card types (program types)
       'corporate': ['business', 'company', 'corporate', 'employee', 'work', 'office', 'enterprise'],
       'fleet': ['fuel', 'gas', 'vehicle', 'fleet', 'car', 'truck', 'diesel'],
       'meal': ['food', 'meal', 'lunch', 'dinner', 'restaurant', 'eat'],
       'travel': ['travel', 'trip', 'accommodation', 'hotel', 'flight'],
       'gift': ['gift', 'voucher', 'present', 'reward'],
       'transport': ['transport', 'commute', 'transit', 'bus', 'train', 'metro'],
+      'healthcare': ['healthcare', 'health', 'medical', 'hospital', 'doctor', 'clinic', 'medicine'],
+      'education': ['education', 'school', 'student', 'university', 'college', 'learning', 'academic'],
 
       // Funding models
       'prepaid': ['prepaid', 'load', 'advance', 'pre-paid', 'preload'],

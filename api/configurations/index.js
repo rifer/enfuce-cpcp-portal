@@ -145,7 +145,7 @@ async function handleCreateConfiguration(req, res) {
   }
 
   // Validate enum fields (case-insensitive)
-  const validProgramTypes = ['corporate', 'fleet', 'meal', 'travel', 'gift', 'transport'];
+  const validProgramTypes = ['corporate', 'fleet', 'meal', 'travel', 'gift', 'transport', 'healthcare', 'education'];
   if (!validProgramTypes.includes(configData.program_type?.toLowerCase())) {
     return res.status(400).json({
       success: false,
