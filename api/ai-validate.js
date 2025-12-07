@@ -463,11 +463,16 @@ function validateFieldLocally(question, userInput) {
     }
 
     // Third, try to extract numbers (including those with commas like "2,000")
+    // Only match standalone numbers, not digits mixed with letters (e.g., "2hudrez")
     const cleanedInput = userInput.replace(/,(\d{3})/g, '$1'); // Remove commas from numbers
-    const numbers = cleanedInput.match(/\d+/g);
 
-    if (numbers && numbers.length > 0) {
-      const extractedValue = parseInt(numbers[0]);
+    // Match numbers that are either standalone or followed by whitespace/punctuation
+    // Reject if digits are mixed with letters (like "2hudrez")
+    const numberPattern = /^(\d+)$|(?:^|\s)(\d+)(?:\s|$)/;
+    const numberMatch = cleanedInput.match(numberPattern);
+
+    if (numberMatch) {
+      const extractedValue = parseInt(numberMatch[1] || numberMatch[2]);
       return {
         validated: true,
         extracted_value: extractedValue,
@@ -581,8 +586,8 @@ function validateFieldLocally(question, userInput) {
       'USD': ['usd', 'dollar', 'dollars', 'us', 'american', 'usa', 'united states', '$'],
       'GBP': ['gbp', 'pound', 'pounds', 'sterling', 'uk', 'british', 'britain', 'england', '£'],
       'SEK': ['sek', 'krona', 'kronor', 'sweden', 'swedish'],
-      'NOK': ['nok', 'krone', 'kroner', 'norway', 'norwegian'],
-      'DKK': ['dkk', 'krone', 'denmark', 'danish'],
+      'NOK': ['nok', 'norwegian krone', 'norwegian kroner', 'norway', 'norwegian'],
+      'DKK': ['dkk', 'danish krone', 'danish kroner', 'denmark', 'danish'],
       'PLN': ['pln', 'zloty', 'poland', 'polish'],
       'CZK': ['czk', 'koruna', 'czech', 'czechia'],
       'HUF': ['huf', 'forint', 'hungary', 'hungarian'],

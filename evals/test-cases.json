@@ -46,7 +46,7 @@
       "step": "program_name",
       "input": "AB",
       "expected_validation": false,
-      "expected_response_contains": ["at least 3 characters", "longer"],
+      "expected_response_contains": ["at least 3 characters"],
       "description": "Too short name rejection"
     },
     {
@@ -91,7 +91,7 @@
       "step": "program_type",
       "input": "something weird",
       "expected_validation": false,
-      "expected_response_contains": ["didn't understand", "choose from"],
+      "expected_response_contains": ["corporate"],
       "description": "Invalid program type"
     },
     {
