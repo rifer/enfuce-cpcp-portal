@@ -568,7 +568,7 @@ function validateFieldLocally(question, userInput) {
       // Funding models
       'prepaid': ['prepaid', 'load', 'advance', 'pre-paid', 'preload'],
       'debit': ['debit', 'bank', 'account', 'checking'],
-      'credit': ['credit', 'loan', 'billing', 'invoice', 'bill'],
+      'credit': ['credit', 'loan', 'billing', 'invoice', 'bill', 'charge'],
       'revolving': ['revolving', 'revolve', 'rotating'],
 
       // Form factors
@@ -779,6 +779,12 @@ async function validateWithOpenAI(action, context) {
 5. Provide helpful explanations
 6. Maintain a friendly, professional tone
 
+IMPORTANT RULES:
+- For funding models, the ONLY valid options are: prepaid, debit, credit, revolving
+- If user says "charge card" or "charge", map it to "credit" (NOT "charge")
+- NEVER extract "charge" as a funding model value
+- extracted_value MUST exactly match one of the available options (with proper casing)
+
 Current question: ${current_question.question}
 Field: ${current_question.field}
 Type: ${current_question.type}
@@ -913,7 +919,9 @@ Your job:
    - NATURAL LANGUAGE extraction:
      * "for our company's employees" → Extract "corporate"
      * "lunch vouchers" → Extract "meal" (NOT return "lunch vouchers")
-     * "we want to preload" → Extract "prepaid"
+     * "we want to preload" or "preload funds" → Extract "prepaid"
+     * "charge card" or "I want a charge card" → This means CREDIT, extract "credit"
+     * NEVER extract "charge" as a funding model - it's not valid! Map to "credit" instead
    - "ALL" or "all of them":
      * If MULTISELECT → Return ALL options as ARRAY
      * If SINGLE-SELECT → Ask them to pick ONE
