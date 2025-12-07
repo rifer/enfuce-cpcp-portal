@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { createConfiguration, transformWizardToAPI, getConfigurationSchema } from './api/configurationService';
+import { createConfiguration, transformWizardToAPI, getConfigurationSchema, submitFeedback } from './api/configurationService';
+import FeedbackModal from './components/FeedbackModal';
 
 const EnfucePortal = () => {
   const [activeSection, setActiveSection] = useState('dashboard');
@@ -9,6 +10,10 @@ const EnfucePortal = () => {
   const [abTestVariant, setAbTestVariant] = useState(null);
   const [pricingVariant, setPricingVariant] = useState(null);
   const [wizardVariant, setWizardVariant] = useState(null); // 'traditional' or 'chat'
+
+  // Feedback modal state
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackStartTime, setFeedbackStartTime] = useState(null);
 
   // Configuration schema from API (dynamic options)
   const [configSchema, setConfigSchema] = useState(null);
@@ -70,14 +75,11 @@ const EnfucePortal = () => {
         savedConfig: result.data
       });
 
-      // Show success message for 3 seconds, then close wizard
+      // Show success message for 2 seconds, then show feedback modal
       setTimeout(() => {
-        setShowCreateWizard(false);
-        setWizardStep(1);
-        setChatMessages([]);
-        setChatStep(0);
-        setSaveStatus({ loading: false, success: false, error: null, savedConfig: null });
-      }, 3000);
+        setFeedbackStartTime(Date.now());
+        setShowFeedbackModal(true);
+      }, 2000);
 
     } catch (error) {
       console.error('❌ Failed to save configuration:', error);
@@ -90,6 +92,50 @@ const EnfucePortal = () => {
       });
     }
   }, [newProgram]);
+
+  // Handle feedback submission
+  const handleFeedbackSubmit = useCallback(async (feedbackData) => {
+    try {
+      const timeToCompleteSeconds = feedbackStartTime
+        ? Math.floor((Date.now() - feedbackStartTime) / 1000)
+        : null;
+
+      const fullFeedbackData = {
+        ...feedbackData,
+        configurationId: saveStatus.savedConfig?.id,
+        sessionId: `session_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+        abTestData: {
+          ctaVariant: abTestVariant,
+          pricingVariant: pricingVariant
+        },
+        timeToCompleteSeconds
+      };
+
+      await submitFeedback(fullFeedbackData);
+      console.log('✅ Feedback submitted successfully');
+
+      // Close wizard after feedback submission
+      setShowFeedbackModal(false);
+      setShowCreateWizard(false);
+      setWizardStep(1);
+      setChatMessages([]);
+      setChatStep(0);
+      setSaveStatus({ loading: false, success: false, error: null, savedConfig: null });
+    } catch (error) {
+      console.error('❌ Failed to submit feedback:', error);
+      throw error;
+    }
+  }, [feedbackStartTime, saveStatus.savedConfig, abTestVariant, pricingVariant]);
+
+  // Handle feedback skip
+  const handleFeedbackSkip = useCallback(() => {
+    setShowFeedbackModal(false);
+    setShowCreateWizard(false);
+    setWizardStep(1);
+    setChatMessages([]);
+    setChatStep(0);
+    setSaveStatus({ loading: false, success: false, error: null, savedConfig: null });
+  }, []);
 
   // Wizard scroll management
   const scrollContainerRef = useRef(null);
@@ -2719,6 +2765,18 @@ const EnfucePortal = () => {
       
       {showCreateWizard && (wizardVariant === 'chat' ? renderChatWizard() : renderWizardModal())}
       {selectedProgram && <ProgramDetail program={selectedProgram} />}
+
+      <FeedbackModal
+        isOpen={showFeedbackModal}
+        onClose={handleFeedbackSkip}
+        onSubmit={handleFeedbackSubmit}
+        wizardVariant={wizardVariant}
+        configurationData={{
+          programType: newProgram.type,
+          fundingModel: newProgram.fundingModel,
+          cardCount: newProgram.estimatedCards
+        }}
+      />
     </div>
   );
 };

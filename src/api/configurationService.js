@@ -154,6 +154,31 @@ export async function deleteConfiguration(id, softDelete = false) {
 }
 
 /**
+ * Submit user feedback after configuration
+ * @param {Object} feedbackData - Feedback form data
+ * @returns {Promise<Object>} Submission result
+ */
+export async function submitFeedback(feedbackData) {
+  const response = await fetch('/api/feedback', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(feedbackData),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    const error = new Error(result.error || 'Failed to submit feedback');
+    error.details = result;
+    throw error;
+  }
+
+  return result;
+}
+
+/**
  * Transform wizard data to API format
  * Maps the wizard's internal structure to the API's expected format
  * @param {Object} wizardData - Data from the wizard
