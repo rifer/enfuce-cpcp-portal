@@ -586,6 +586,9 @@ function validateFieldLocally(question, userInput) {
       'Visa': ['visa', 'v'],
       'Mastercard': ['mastercard', 'mc', 'master'],
       'American Express': ['amex', 'american express', 'americanexpress', 'american', 'express', 'ae', 'amx'],
+      'Discover': ['discover'],
+      'UnionPay': ['unionpay', 'union pay', 'china unionpay'],
+      'JCB': ['jcb', 'japan credit bureau'],
 
       // ALL Currencies with extensive keywords
       'EUR': ['eur', 'euro', 'euros', 'europe', 'european', '€'],

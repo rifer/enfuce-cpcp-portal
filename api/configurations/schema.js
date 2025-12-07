@@ -25,7 +25,7 @@ export default async function handler(req, res) {
   try {
     // Fallback options if database query fails
     const fallbackOptions = {
-      cardSchemes: ['Visa', 'Mastercard'],
+      cardSchemes: ['Visa', 'Mastercard', 'American Express', 'Discover', 'UnionPay', 'JCB'],
       programTypes: ['corporate', 'fleet', 'meal', 'travel', 'gift', 'transport'],
       fundingModels: ['prepaid', 'debit', 'credit', 'revolving'],
       formFactors: ['physical', 'virtual', 'tokenized'],

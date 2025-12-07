@@ -165,8 +165,29 @@ async function handleCreateConfiguration(req, res) {
     });
   }
 
-  const validSchemes = ['Visa', 'Mastercard'];
-  const normalizedScheme = configData.card_scheme?.charAt(0).toUpperCase() + configData.card_scheme?.slice(1).toLowerCase();
+  const validSchemes = ['Visa', 'Mastercard', 'American Express', 'Discover', 'UnionPay', 'JCB'];
+
+  // Normalize card scheme - handle special cases and common aliases
+  let normalizedScheme;
+  const schemeLower = configData.card_scheme?.toLowerCase();
+
+  if (schemeLower === 'visa' || schemeLower === 'v') {
+    normalizedScheme = 'Visa';
+  } else if (schemeLower === 'mastercard' || schemeLower === 'mc' || schemeLower === 'master') {
+    normalizedScheme = 'Mastercard';
+  } else if (schemeLower === 'american express' || schemeLower === 'amex' || schemeLower === 'ae') {
+    normalizedScheme = 'American Express';
+  } else if (schemeLower === 'discover') {
+    normalizedScheme = 'Discover';
+  } else if (schemeLower === 'unionpay' || schemeLower === 'union pay') {
+    normalizedScheme = 'UnionPay';
+  } else if (schemeLower === 'jcb') {
+    normalizedScheme = 'JCB';
+  } else {
+    // Try the old normalization method as fallback
+    normalizedScheme = configData.card_scheme?.charAt(0).toUpperCase() + configData.card_scheme?.slice(1).toLowerCase();
+  }
+
   if (!validSchemes.includes(normalizedScheme)) {
     return res.status(400).json({
       success: false,
