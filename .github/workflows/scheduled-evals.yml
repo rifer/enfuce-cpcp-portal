@@ -1,0 +1,213 @@
+name: Scheduled EVALS (4x Daily)
+
+on:
+  # Run 4 times per day at: 00:00, 06:00, 12:00, 18:00 UTC
+  schedule:
+    - cron: '0 0,6,12,18 * * *'
+
+  # Allow manual trigger for testing
+  workflow_dispatch:
+    inputs:
+      api_url:
+        description: 'API URL to test (leave empty for production)'
+        required: false
+        default: ''
+
+jobs:
+  run-scheduled-evals:
+    name: Run Scheduled EVALS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Determine API URL
+        id: api_url
+        run: |
+          if [ -n "${{ github.event.inputs.api_url }}" ]; then
+            URL="${{ github.event.inputs.api_url }}"
+          elif [ -n "${{ secrets.PRODUCTION_URL }}" ]; then
+            URL="${{ secrets.PRODUCTION_URL }}"
+          else
+            URL="https://enfuce-cpcp-portal.vercel.app"
+          fi
+          echo "url=${URL}" >> $GITHUB_OUTPUT
+          echo "Testing against: ${URL}"
+
+      - name: Wait for API warmup
+        run: |
+          echo "Waiting 10 seconds for API warmup..."
+          sleep 10
+
+      - name: Run EVALS - Local Provider
+        env:
+          API_URL: ${{ steps.api_url.outputs.url }}
+          AI_PROVIDER: local
+        run: |
+          echo "🧪 Running EVALS (LOCAL) against: $API_URL"
+          npm run evals:local || echo "LOCAL_FAILED=true" >> $GITHUB_ENV
+        continue-on-error: true
+
+      - name: Run EVALS - Anthropic Provider
+        env:
+          API_URL: ${{ steps.api_url.outputs.url }}
+          AI_PROVIDER: anthropic
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          echo "🧪 Running EVALS (ANTHROPIC) against: $API_URL"
+          npm run evals:anthropic || echo "ANTHROPIC_FAILED=true" >> $GITHUB_ENV
+        continue-on-error: true
+
+      - name: Upload EVALS results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scheduled-evals-results-${{ github.run_number }}
+          path: |
+            evals/results/latest-local.json
+            evals/results/latest-anthropic.json
+            evals/failures/failures-local.txt
+            evals/failures/failures-local.json
+            evals/failures/failures-anthropic.txt
+            evals/failures/failures-anthropic.json
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Check for failures and prepare issue
+        if: always()
+        id: check_failures
+        run: |
+          LOCAL_FILE="evals/results/latest-local.json"
+          ANTHROPIC_FILE="evals/results/latest-anthropic.json"
+          FAILURES_FOUND=false
+
+          # Check local results
+          if [ -f "$LOCAL_FILE" ]; then
+            LOCAL_FAILED=$(node -e "
+              const fs = require('fs');
+              const results = JSON.parse(fs.readFileSync('$LOCAL_FILE', 'utf8'));
+              console.log(results.failed > 0 ? 'true' : 'false');
+            ")
+            if [ "$LOCAL_FAILED" = "true" ]; then
+              FAILURES_FOUND=true
+            fi
+          fi
+
+          # Check anthropic results
+          if [ -f "$ANTHROPIC_FILE" ]; then
+            ANTHROPIC_FAILED=$(node -e "
+              const fs = require('fs');
+              const results = JSON.parse(fs.readFileSync('$ANTHROPIC_FILE', 'utf8'));
+              console.log(results.failed > 0 ? 'true' : 'false');
+            ")
+            if [ "$ANTHROPIC_FAILED" = "true" ]; then
+              FAILURES_FOUND=true
+            fi
+          fi
+
+          echo "failures_found=${FAILURES_FOUND}" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Issue for failures
+        if: steps.check_failures.outputs.failures_found == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const localPath = 'evals/results/latest-local.json';
+            const anthropicPath = 'evals/results/latest-anthropic.json';
+            const localFailuresPath = 'evals/failures/failures-local.txt';
+            const anthropicFailuresPath = 'evals/failures/failures-anthropic.txt';
+
+            let issueBody = `## 🚨 Scheduled EVALS Failures Detected\n\n`;
+            issueBody += `**Run:** [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\n`;
+            issueBody += `**Time:** ${new Date().toISOString()}\n`;
+            issueBody += `**API URL:** ${{ steps.api_url.outputs.url }}\n\n`;
+            issueBody += `---\n\n`;
+
+            // Local provider
+            if (fs.existsSync(localPath)) {
+              const local = JSON.parse(fs.readFileSync(localPath, 'utf8'));
+              issueBody += `### 🔵 Local Provider\n`;
+              issueBody += `- **Accuracy:** ${local.metrics.validation_accuracy.toFixed(1)}%\n`;
+              issueBody += `- **Passed:** ${local.passed}/${local.total}\n`;
+              issueBody += `- **Failed:** ${local.failed}\n\n`;
+
+              if (local.failed > 0 && fs.existsSync(localFailuresPath)) {
+                const failures = fs.readFileSync(localFailuresPath, 'utf8');
+                issueBody += `<details>\n<summary>View Local Provider Failures</summary>\n\n\`\`\`\n${failures}\n\`\`\`\n</details>\n\n`;
+              }
+            }
+
+            // Anthropic provider
+            if (fs.existsSync(anthropicPath)) {
+              const anthropic = JSON.parse(fs.readFileSync(anthropicPath, 'utf8'));
+              issueBody += `### 🟢 Anthropic Provider\n`;
+              issueBody += `- **Accuracy:** ${anthropic.metrics.validation_accuracy.toFixed(1)}%\n`;
+              issueBody += `- **Passed:** ${anthropic.passed}/${anthropic.total}\n`;
+              issueBody += `- **Failed:** ${anthropic.failed}\n\n`;
+
+              if (anthropic.failed > 0 && fs.existsSync(anthropicFailuresPath)) {
+                const failures = fs.readFileSync(anthropicFailuresPath, 'utf8');
+                issueBody += `<details>\n<summary>View Anthropic Provider Failures</summary>\n\n\`\`\`\n${failures}\n\`\`\`\n</details>\n\n`;
+              }
+            }
+
+            issueBody += `\n---\n\n`;
+            issueBody += `## 🔧 Next Steps\n\n`;
+            issueBody += `1. Review the failure details above\n`;
+            issueBody += `2. Download artifacts from the workflow run for detailed reports\n`;
+            issueBody += `3. Run in Claude Code: \`fix this issue\` to auto-generate fixes\n`;
+            issueBody += `4. Review and merge the automated PR\n\n`;
+            issueBody += `**Artifacts:** [Download Results](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\n`;
+
+            // Check if there's already an open issue for today
+            const today = new Date().toISOString().split('T')[0];
+            const existingIssues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'evals-failure',
+              per_page: 100
+            });
+
+            const todayIssue = existingIssues.data.find(issue =>
+              issue.title.includes(today)
+            );
+
+            if (todayIssue) {
+              // Update existing issue with new run
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: todayIssue.number,
+                body: `## 🔄 Updated Results (Run #${{ github.run_number }})\n\n${issueBody}`
+              });
+              console.log(`Updated existing issue #${todayIssue.number}`);
+            } else {
+              // Create new issue
+              const issue = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `🚨 EVALS Failures - ${today}`,
+                body: issueBody,
+                labels: ['evals-failure', 'automated']
+              });
+              console.log(`Created new issue #${issue.data.number}`);
+            }
+
+      - name: Notify via email (GitHub notifications)
+        if: steps.check_failures.outputs.failures_found == 'true'
+        run: |
+          echo "✉️  Email notification will be sent via GitHub issue creation"
+          echo "Make sure you have 'Watching' enabled on this repository"
+          echo "Go to: Repository → Watch → Custom → Issues"
