@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const FeedbackModal = ({ isOpen, onClose, onSubmit, wizardVariant, configurationData }) => {
   const [formData, setFormData] = useState({
@@ -17,6 +17,25 @@ const FeedbackModal = ({ isOpen, onClose, onSubmit, wizardVariant, configuration
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Reset form when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setFormData({
+        satisfactionRating: 0,
+        easeOfUseRating: 0,
+        wouldRecommend: null,
+        mostHelpfulFeature: '',
+        issuesEncountered: [],
+        comments: ''
+      });
+      setHoveredStars({
+        satisfaction: 0,
+        easeOfUse: 0
+      });
+      setIsSubmitting(false);
+    }
+  }, [isOpen]);
+
   const issueOptions = [
     { id: 'confusing_steps', label: 'Confusing steps' },
     { id: 'missing_information', label: 'Missing information' },
@@ -34,10 +53,15 @@ const FeedbackModal = ({ isOpen, onClose, onSubmit, wizardVariant, configuration
   ];
 
   const handleStarClick = (field, rating) => {
-    setFormData(prev => ({
-      ...prev,
-      [`${field}Rating`]: rating
-    }));
+    console.log('Star clicked:', field, rating);
+    setFormData(prev => {
+      const updated = {
+        ...prev,
+        [`${field}Rating`]: rating
+      };
+      console.log('Updated formData:', updated);
+      return updated;
+    });
   };
 
   const handleIssueToggle = (issueId) => {
