@@ -425,29 +425,35 @@ function validateFieldLocally(question, userInput) {
 
   // Number extraction
   if (type === 'number') {
-    // First, try to evaluate math expressions (e.g., "500 + 200", "200*30")
-    const mathMatch = userInput.match(/(\d+(?:,\d{3})*(?:\.\d+)?)\s*([+\-*/×÷])\s*(\d+(?:,\d{3})*(?:\.\d+)?)/);
-    if (mathMatch) {
-      const num1 = parseFloat(mathMatch[1].replace(/,/g, ''));
-      const operator = mathMatch[2].replace('×', '*').replace('÷', '/');
-      const num2 = parseFloat(mathMatch[3].replace(/,/g, ''));
+    // First, try to evaluate math expressions (handles multiple operators like "2*34*31")
+    // Check if input contains math operators
+    const mathPattern = /^[\d\s+\-*/×÷,.()]+$/;
+    if (mathPattern.test(userInput)) {
+      try {
+        // Clean up the expression
+        const cleanExpression = userInput
+          .replace(/,(\d{3})/g, '$1') // Remove thousands separators
+          .replace(/×/g, '*')          // Replace × with *
+          .replace(/÷/g, '/')          // Replace ÷ with /
+          .replace(/\s+/g, '');        // Remove all spaces
 
-      let result;
-      switch(operator) {
-        case '+': result = num1 + num2; break;
-        case '-': result = num1 - num2; break;
-        case '*': result = num1 * num2; break;
-        case '/': result = num1 / num2; break;
-        default: result = num1;
+        // Safely evaluate the expression using Function constructor
+        // This is safe because we've validated the input contains only numbers and math operators
+        const result = Function(`'use strict'; return (${cleanExpression})`)();
+
+        if (typeof result === 'number' && !isNaN(result) && isFinite(result)) {
+          return {
+            validated: true,
+            extracted_value: Math.round(result),
+            confidence: 0.95,
+            ai_response: `Perfect! ${userInput} = ${Math.round(result)}. I'll use ${Math.round(result)}.`,
+            requires_clarification: false
+          };
+        }
+      } catch (error) {
+        // Fall through to other parsing methods if evaluation fails
+        console.log('Math expression evaluation failed:', error);
       }
-
-      return {
-        validated: true,
-        extracted_value: Math.round(result),
-        confidence: 0.95,
-        ai_response: `Perfect! ${num1} ${operator} ${num2} = ${Math.round(result)}. I'll use ${Math.round(result)}.`,
-        requires_clarification: false
-      };
     }
 
     // Second, try written numbers first (e.g., "two hundred", "one thousand")
