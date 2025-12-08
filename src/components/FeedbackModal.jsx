@@ -111,26 +111,44 @@ const FeedbackModal = ({ isOpen, onClose, onSubmit, wizardVariant, configuration
 
   console.log('FeedbackModal: Rendering, formData:', formData);
 
-  const StarRating = ({ field, label, value, hovered }) => (
-    <div className="feedback-rating-group">
-      <label className="feedback-label">{label} *</label>
-      <div className="star-rating">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <button
-            key={star}
-            type="button"
-            className={`star ${star <= (hovered || value) ? 'active' : ''}`}
-            onClick={() => handleStarClick(field, star)}
-            onMouseEnter={() => setHoveredStars(prev => ({ ...prev, [field]: star }))}
-            onMouseLeave={() => setHoveredStars(prev => ({ ...prev, [field]: 0 }))}
-            aria-label={`${star} star${star > 1 ? 's' : ''}`}
-          >
-            ★
-          </button>
-        ))}
+  const StarRating = ({ field, label, value, hovered }) => {
+    console.log(`StarRating render - field: ${field}, value: ${value}, hovered: ${hovered}`);
+
+    return (
+      <div className="feedback-rating-group">
+        <label className="feedback-label">{label} *</label>
+        <div className="star-rating" style={{display: 'flex', gap: '8px'}}>
+          {[1, 2, 3, 4, 5].map((star) => (
+            <button
+              key={star}
+              type="button"
+              className={`star ${star <= (hovered || value) ? 'active' : ''}`}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log(`Star button clicked: field=${field}, star=${star}`);
+                handleStarClick(field, star);
+              }}
+              onMouseEnter={() => setHoveredStars(prev => ({ ...prev, [field]: star }))}
+              onMouseLeave={() => setHoveredStars(prev => ({ ...prev, [field]: 0 }))}
+              aria-label={`${star} star${star > 1 ? 's' : ''}`}
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '32px',
+                color: star <= (hovered || value) ? '#ffc107' : '#444',
+                cursor: 'pointer',
+                padding: '4px',
+                lineHeight: '1'
+              }}
+            >
+              ★
+            </button>
+          ))}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="feedback-modal-backdrop" onClick={handleSkip}>
