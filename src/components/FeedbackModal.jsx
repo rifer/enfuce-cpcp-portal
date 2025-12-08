@@ -104,7 +104,12 @@ const FeedbackModal = ({ isOpen, onClose, onSubmit, wizardVariant, configuration
     onClose();
   };
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    console.log('FeedbackModal: isOpen is false, not rendering');
+    return null;
+  }
+
+  console.log('FeedbackModal: Rendering, formData:', formData);
 
   const StarRating = ({ field, label, value, hovered }) => (
     <div className="feedback-rating-group">
@@ -133,6 +138,16 @@ const FeedbackModal = ({ isOpen, onClose, onSubmit, wizardVariant, configuration
         <div className="feedback-modal-header">
           <h2>How was your experience?</h2>
           <p className="feedback-subtitle">Help us improve the card configuration process</p>
+          <button
+            type="button"
+            onClick={() => {
+              console.log('TEST CLICK WORKING');
+              console.log('Current satisfaction:', formData.satisfactionRating);
+            }}
+            style={{padding: '10px', background: 'red', color: 'white', margin: '10px 0'}}
+          >
+            TEST BUTTON - Click Me
+          </button>
         </div>
 
         <form onSubmit={handleSubmit} className="feedback-form">
