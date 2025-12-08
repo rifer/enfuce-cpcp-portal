@@ -688,6 +688,150 @@
       "input": "2hudrez",
       "expected_validation": false,
       "description": "Typo detection: '2hudrez' should not be accepted as valid number"
+    },
+    {
+      "id": "card-design-exact",
+      "category": "validation",
+      "step": "card_design",
+      "input": "corporate",
+      "expected_validation": true,
+      "expected_value": "corporate",
+      "description": "Exact card design match"
+    },
+    {
+      "id": "card-design-premium",
+      "category": "validation",
+      "step": "card_design",
+      "input": "premium",
+      "expected_validation": true,
+      "expected_value": "premium",
+      "description": "Premium design selection"
+    },
+    {
+      "id": "card-design-ocean",
+      "category": "validation",
+      "step": "card_design",
+      "input": "ocean",
+      "expected_validation": true,
+      "expected_value": "ocean",
+      "description": "Ocean design selection"
+    },
+    {
+      "id": "card-design-sunset",
+      "category": "validation",
+      "step": "card_design",
+      "input": "sunset",
+      "expected_validation": true,
+      "expected_value": "sunset",
+      "description": "Sunset design selection"
+    },
+    {
+      "id": "card-design-custom",
+      "category": "validation",
+      "step": "card_design",
+      "input": "custom",
+      "expected_validation": true,
+      "expected_value": "custom",
+      "description": "Custom design selection"
+    },
+    {
+      "id": "card-design-natural-language",
+      "category": "validation",
+      "step": "card_design",
+      "input": "I want a professional looking card",
+      "expected_validation": true,
+      "expected_value": "corporate",
+      "description": "Natural language → corporate design"
+    },
+    {
+      "id": "card-design-natural-language-2",
+      "category": "validation",
+      "step": "card_design",
+      "input": "something fancy and exclusive",
+      "expected_validation": true,
+      "expected_value": "premium",
+      "description": "Natural language → premium design"
+    },
+    {
+      "id": "card-design-typo",
+      "category": "typo_correction",
+      "step": "card_design",
+      "input": "premum",
+      "expected_validation": true,
+      "expected_value": "premium",
+      "description": "Typo correction: premum → premium"
+    },
+    {
+      "id": "card-color-hex-valid",
+      "category": "validation",
+      "step": "card_color",
+      "input": "#2C3E50",
+      "expected_validation": true,
+      "expected_value": "#2C3E50",
+      "description": "Valid hex color code"
+    },
+    {
+      "id": "card-color-hex-lowercase",
+      "category": "validation",
+      "step": "card_color",
+      "input": "#ff5733",
+      "expected_validation": true,
+      "expected_value": "#ff5733",
+      "description": "Hex color with lowercase letters"
+    },
+    {
+      "id": "card-color-name-blue",
+      "category": "validation",
+      "step": "card_color",
+      "input": "blue",
+      "expected_validation": true,
+      "expected_response_contains": ["blue"],
+      "description": "Color name: blue"
+    },
+    {
+      "id": "card-color-name-red",
+      "category": "validation",
+      "step": "card_color",
+      "input": "red",
+      "expected_validation": true,
+      "expected_response_contains": ["red"],
+      "description": "Color name: red"
+    },
+    {
+      "id": "card-color-name-black",
+      "category": "validation",
+      "step": "card_color",
+      "input": "black",
+      "expected_validation": true,
+      "expected_response_contains": ["black"],
+      "description": "Color name: black"
+    },
+    {
+      "id": "card-color-natural-language",
+      "category": "validation",
+      "step": "card_color",
+      "input": "make it dark blue",
+      "expected_validation": true,
+      "expected_response_contains": ["blue"],
+      "description": "Natural language color: dark blue"
+    },
+    {
+      "id": "card-color-default",
+      "category": "validation",
+      "step": "card_color",
+      "input": "default",
+      "expected_validation": true,
+      "expected_value": "#2C3E50",
+      "description": "Default color selection"
+    },
+    {
+      "id": "card-color-skip",
+      "category": "commands",
+      "step": "card_color",
+      "input": "skip",
+      "expected_validation": false,
+      "expected_command": "skip",
+      "description": "Skip card color (optional field)"
     }
   ]
 }
