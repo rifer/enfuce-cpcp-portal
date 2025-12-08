@@ -1219,23 +1219,27 @@ const EnfucePortal = () => {
 
   // Conversation flow for chat wizard (uses dynamic schema options)
   const conversationSteps = React.useMemo(() => {
-    const programTypes = getSchemaOptions('program_type', ['corporate', 'fleet', 'meal', 'travel', 'gift', 'transport']);
+    const programTypes = getSchemaOptions('program_type', ['corporate', 'fleet', 'meal', 'travel', 'gift', 'transport', 'healthcare', 'education']);
     const fundingModels = getSchemaOptions('funding_model', ['prepaid', 'debit', 'credit', 'revolving']);
     const formFactors = getSchemaOptions('form_factors', ['physical', 'virtual', 'tokenized']);
-    const cardSchemes = getSchemaOptions('card_scheme', ['Visa', 'Mastercard']);
-    const currencies = getSchemaOptions('currency', ['EUR', 'USD', 'GBP', 'SEK']);
+    const cardSchemes = getSchemaOptions('card_scheme', ['Visa', 'Mastercard', 'American Express', 'Discover', 'UnionPay', 'JCB']);
+    const currencies = getSchemaOptions('currency', ['EUR', 'USD', 'GBP', 'CHF', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF']);
+    const cardDesigns = ['corporate', 'premium', 'ocean', 'sunset', 'custom'];
 
     return [
-      { question: "Hi! I'm here to help you create a new card program. 🤖\n\nI understand natural language - just answer in your own words! You can also type 'help' anytime, 'back' to go to the previous question, or 'summary' to see your progress.\n\nLet's get started! What would you like to name your card program?", field: 'name', type: 'text' },
+      { question: "Hi! I'm here to help you create a new card program. 🤖\n\nI understand natural language - just answer in your own words! You can also type 'help' anytime, 'back' to go to the previous question, or 'summary' to see your progress.\n\nLet's get started! What would you like to name your card program?", field: 'name', type: 'text', minLength: 3 },
       { question: `Great! What type of card program is this? (e.g., ${programTypes.map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(', ')})`, field: 'type', type: 'select', options: programTypes },
       { question: `Perfect! What funding model would you like? (${fundingModels.map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(', ')})`, field: 'fundingModel', type: 'select', options: fundingModels },
       { question: `Which card form factors should we include? You can choose multiple: ${formFactors.map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(', ')} (separate with commas)`, field: 'formFactor', type: 'multiselect', options: formFactors },
-      { question: `Which card scheme would you prefer? (${cardSchemes.join(' or ')})`, field: 'scheme', type: 'select', options: cardSchemes },
+      { question: `Which card scheme would you prefer? (${cardSchemes.join(', ')})`, field: 'scheme', type: 'select', options: cardSchemes },
       { question: `What currency should the program use? (${currencies.join(', ')})`, field: 'currency', type: 'select', options: currencies },
       { question: "How many cards do you estimate you'll need?", field: 'estimatedCards', type: 'number' },
-      { question: "Almost done! What should the daily spending limit be? (in your selected currency)", field: 'dailyLimit', type: 'number' },
+      { question: "What should the daily spending limit be? (in your selected currency)", field: 'dailyLimit', type: 'number' },
       { question: "And what about the monthly spending limit?", field: 'monthlyLimit', type: 'number' },
-      { question: "Excellent! I've gathered all the information. Let me create your program summary...", field: 'complete', type: 'complete' }
+      { question: `What card design would you like? (${cardDesigns.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', ')})`, field: 'cardDesign', type: 'select', options: cardDesigns },
+      { question: "What color should the card be? (e.g., '#2C3E50' or 'blue' or 'default')", field: 'cardColor', type: 'color', optional: true },
+      { question: "Perfect! Let me show you a summary of your card program...", field: 'summary', type: 'summary' },
+      { question: "Does everything look good? Type 'yes' to create the program or 'no' to make changes.", field: 'confirmation', type: 'confirmation' }
     ];
   }, [configSchema, getSchemaOptions]);
 
@@ -1373,8 +1377,27 @@ const EnfucePortal = () => {
           return;
         }
 
+        // Handle confirmation step
+        if (currentStep.type === 'confirmation') {
+          const confirmed = userMessage.toLowerCase().trim();
+          if (confirmed === 'yes' || confirmed === 'y' || confirmed === 'confirm' || confirmed === 'ok') {
+            // User confirmed, proceed to save
+            simulateTyping("Great! Creating your program now...");
+            setTimeout(() => {
+              saveConfiguration();
+            }, 1000);
+            return;
+          } else if (confirmed === 'no' || confirmed === 'n') {
+            simulateTyping("No problem! Type 'back' to go to any previous question and make changes.");
+            return;
+          } else {
+            simulateTyping("Please type 'yes' to confirm or 'no' to make changes.");
+            return;
+          }
+        }
+
         // Update program data with validated value
-        if (currentStep.field !== 'complete') {
+        if (currentStep.field !== 'complete' && currentStep.field !== 'summary' && currentStep.field !== 'confirmation') {
           updateProgram({ [currentStep.field]: extractedValue });
 
           // Add to conversation history
@@ -1438,16 +1461,46 @@ const EnfucePortal = () => {
   const proceedToNextStep = useCallback(() => {
     const nextStep = chatStep + 1;
     if (nextStep < conversationSteps.length) {
-      simulateTyping(conversationSteps[nextStep].question, () => {
-        setChatStep(nextStep);
-      });
+      const nextStepData = conversationSteps[nextStep];
+
+      // Handle summary step - show program details
+      if (nextStepData.type === 'summary') {
+        const summary = `
+📋 **Program Summary:**
+
+**Program Name:** ${newProgram.name}
+**Type:** ${newProgram.type?.charAt(0).toUpperCase() + newProgram.type?.slice(1) || 'N/A'}
+**Funding Model:** ${newProgram.fundingModel?.charAt(0).toUpperCase() + newProgram.fundingModel?.slice(1) || 'N/A'}
+**Form Factors:** ${Array.isArray(newProgram.formFactor) ? newProgram.formFactor.map(f => f.charAt(0).toUpperCase() + f.slice(1)).join(', ') : 'N/A'}
+**Card Scheme:** ${newProgram.scheme || 'N/A'}
+**Currency:** ${newProgram.currency || 'EUR'}
+**Estimated Cards:** ${newProgram.estimatedCards?.toLocaleString() || '100'}
+**Daily Limit:** ${newProgram.dailyLimit?.toLocaleString() || '500'} ${newProgram.currency}
+**Monthly Limit:** ${newProgram.monthlyLimit?.toLocaleString() || '5000'} ${newProgram.currency}
+**Card Design:** ${newProgram.cardDesign?.charAt(0).toUpperCase() + newProgram.cardDesign?.slice(1) || 'Corporate'}
+**Card Color:** ${newProgram.cardColor || '#2C3E50'}
+        `.trim();
+
+        simulateTyping(summary, () => {
+          setChatStep(nextStep);
+          // Auto-proceed to confirmation after showing summary
+          setTimeout(() => {
+            simulateTyping(conversationSteps[nextStep + 1]?.question || "Does everything look good?");
+            setChatStep(nextStep + 1);
+          }, 2000);
+        });
+      } else {
+        simulateTyping(nextStepData.question, () => {
+          setChatStep(nextStep);
+        });
+      }
     } else {
-      // Complete - show summary
+      // Complete - show final message
       simulateTyping("🎉 Perfect! Your card program is ready. Click 'Complete Program' to finish!", () => {
         setChatStep(nextStep);
       });
     }
-  }, [chatStep, simulateTyping, conversationSteps]);
+  }, [chatStep, simulateTyping, conversationSteps, newProgram]);
 
   // Fallback local parsing (when AI API fails)
   const fallbackLocalParsing = useCallback((userMessage, currentStep) => {
