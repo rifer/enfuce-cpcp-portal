@@ -425,29 +425,35 @@ function validateFieldLocally(question, userInput) {
 
   // Number extraction
   if (type === 'number') {
-    // First, try to evaluate math expressions (e.g., "500 + 200", "200*30")
-    const mathMatch = userInput.match(/(\d+(?:,\d{3})*(?:\.\d+)?)\s*([+\-*/×÷])\s*(\d+(?:,\d{3})*(?:\.\d+)?)/);
-    if (mathMatch) {
-      const num1 = parseFloat(mathMatch[1].replace(/,/g, ''));
-      const operator = mathMatch[2].replace('×', '*').replace('÷', '/');
-      const num2 = parseFloat(mathMatch[3].replace(/,/g, ''));
+    // First, try to evaluate math expressions (handles multiple operators like "2*34*31")
+    // Check if input contains math operators
+    const mathPattern = /^[\d\s+\-*/×÷,.()]+$/;
+    if (mathPattern.test(userInput)) {
+      try {
+        // Clean up the expression
+        const cleanExpression = userInput
+          .replace(/,(\d{3})/g, '$1') // Remove thousands separators
+          .replace(/×/g, '*')          // Replace × with *
+          .replace(/÷/g, '/')          // Replace ÷ with /
+          .replace(/\s+/g, '');        // Remove all spaces
 
-      let result;
-      switch(operator) {
-        case '+': result = num1 + num2; break;
-        case '-': result = num1 - num2; break;
-        case '*': result = num1 * num2; break;
-        case '/': result = num1 / num2; break;
-        default: result = num1;
+        // Safely evaluate the expression using Function constructor
+        // This is safe because we've validated the input contains only numbers and math operators
+        const result = Function(`'use strict'; return (${cleanExpression})`)();
+
+        if (typeof result === 'number' && !isNaN(result) && isFinite(result)) {
+          return {
+            validated: true,
+            extracted_value: Math.round(result),
+            confidence: 0.95,
+            ai_response: `Perfect! ${userInput} = ${Math.round(result)}. I'll use ${Math.round(result)}.`,
+            requires_clarification: false
+          };
+        }
+      } catch (error) {
+        // Fall through to other parsing methods if evaluation fails
+        console.log('Math expression evaluation failed:', error);
       }
-
-      return {
-        validated: true,
-        extracted_value: Math.round(result),
-        confidence: 0.95,
-        ai_response: `Perfect! ${num1} ${operator} ${num2} = ${Math.round(result)}. I'll use ${Math.round(result)}.`,
-        requires_clarification: false
-      };
     }
 
     // Second, try written numbers first (e.g., "two hundred", "one thousand")
@@ -557,18 +563,20 @@ function validateFieldLocally(question, userInput) {
 
     // Expanded fuzzy matching with many more keywords
     const fuzzyMatches = {
-      // Card types
+      // Card types (program types)
       'corporate': ['business', 'company', 'corporate', 'employee', 'work', 'office', 'enterprise'],
       'fleet': ['fuel', 'gas', 'vehicle', 'fleet', 'car', 'truck', 'diesel'],
       'meal': ['food', 'meal', 'lunch', 'dinner', 'restaurant', 'eat'],
       'travel': ['travel', 'trip', 'accommodation', 'hotel', 'flight'],
       'gift': ['gift', 'voucher', 'present', 'reward'],
       'transport': ['transport', 'commute', 'transit', 'bus', 'train', 'metro'],
+      'healthcare': ['healthcare', 'health', 'medical', 'hospital', 'doctor', 'clinic', 'medicine'],
+      'education': ['education', 'school', 'student', 'university', 'college', 'learning', 'academic'],
 
       // Funding models
       'prepaid': ['prepaid', 'load', 'advance', 'pre-paid', 'preload'],
       'debit': ['debit', 'bank', 'account', 'checking'],
-      'credit': ['credit', 'loan', 'billing', 'invoice', 'bill'],
+      'credit': ['credit', 'loan', 'billing', 'invoice', 'bill', 'charge'],
       'revolving': ['revolving', 'revolve', 'rotating'],
 
       // Form factors
@@ -580,6 +588,9 @@ function validateFieldLocally(question, userInput) {
       'Visa': ['visa', 'v'],
       'Mastercard': ['mastercard', 'mc', 'master'],
       'American Express': ['amex', 'american express', 'americanexpress', 'american', 'express', 'ae', 'amx'],
+      'Discover': ['discover'],
+      'UnionPay': ['unionpay', 'union pay', 'china unionpay'],
+      'JCB': ['jcb', 'japan credit bureau'],
 
       // ALL Currencies with extensive keywords
       'EUR': ['eur', 'euro', 'euros', 'europe', 'european', '€'],
@@ -779,6 +790,12 @@ async function validateWithOpenAI(action, context) {
 5. Provide helpful explanations
 6. Maintain a friendly, professional tone
 
+IMPORTANT RULES:
+- For funding models, the ONLY valid options are: prepaid, debit, credit, revolving
+- If user says "charge card" or "charge", map it to "credit" (NOT "charge")
+- NEVER extract "charge" as a funding model value
+- extracted_value MUST exactly match one of the available options (with proper casing)
+
 Current question: ${current_question.question}
 Field: ${current_question.field}
 Type: ${current_question.type}
@@ -913,7 +930,9 @@ Your job:
    - NATURAL LANGUAGE extraction:
      * "for our company's employees" → Extract "corporate"
      * "lunch vouchers" → Extract "meal" (NOT return "lunch vouchers")
-     * "we want to preload" → Extract "prepaid"
+     * "we want to preload" or "preload funds" → Extract "prepaid"
+     * "charge card" or "I want a charge card" → This means CREDIT, extract "credit"
+     * NEVER extract "charge" as a funding model - it's not valid! Map to "credit" instead
    - "ALL" or "all of them":
      * If MULTISELECT → Return ALL options as ARRAY
      * If SINGLE-SELECT → Ask them to pick ONE

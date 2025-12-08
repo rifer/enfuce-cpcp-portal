@@ -76,7 +76,9 @@ function getQuestionConfig(field) {
     currency: { field: 'currency', type: 'select', options: ['EUR', 'USD', 'GBP', 'CHF', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF'] },
     estimated_cards: { field: 'estimated_cards', type: 'number', minimum: 1 },
     daily_limit: { field: 'daily_limit', type: 'number', minimum: 0 },
-    monthly_limit: { field: 'monthly_limit', type: 'number', minimum: 0 }
+    monthly_limit: { field: 'monthly_limit', type: 'number', minimum: 0 },
+    card_design: { field: 'card_design', type: 'select', options: ['corporate', 'premium', 'ocean', 'sunset', 'custom'] },
+    card_color: { field: 'card_color', type: 'color', optional: true }
   };
   return questions[field] || { field, type: 'text' };
 }
@@ -212,6 +214,17 @@ async function runTestCase(testCase, provider = 'local') {
     }
 
     const response = apiResult.data;
+
+    // Update with actual provider used (from API response)
+    if (response.provider_used) {
+      result.provider = response.provider_used;
+    }
+
+    // Debug: log provider info for first few tests
+    if (results.total < 3) {
+      console.log(`${colors.gray}  [DEBUG] API response has provider_used: ${response.provider_used}${colors.reset}`);
+      console.log(`${colors.gray}  [DEBUG] Result provider set to: ${result.provider}${colors.reset}`);
+    }
 
     // Check 1: Validation result
     if (testCase.expected_validation !== undefined) {
