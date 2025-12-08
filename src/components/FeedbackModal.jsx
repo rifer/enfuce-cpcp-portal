@@ -17,7 +17,6 @@ const FeedbackModal = ({ isOpen, onClose, onSubmit, wizardVariant, configuration
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Reset form when modal opens
   useEffect(() => {
     if (isOpen) {
       setFormData({
@@ -53,15 +52,10 @@ const FeedbackModal = ({ isOpen, onClose, onSubmit, wizardVariant, configuration
   ];
 
   const handleStarClick = (field, rating) => {
-    console.log('Star clicked:', field, rating);
-    setFormData(prev => {
-      const updated = {
-        ...prev,
-        [`${field}Rating`]: rating
-      };
-      console.log('Updated formData:', updated);
-      return updated;
-    });
+    setFormData(prev => ({
+      ...prev,
+      [`${field}Rating`]: rating
+    }));
   };
 
   const handleIssueToggle = (issueId) => {
@@ -104,50 +98,26 @@ const FeedbackModal = ({ isOpen, onClose, onSubmit, wizardVariant, configuration
     onClose();
   };
 
-  if (!isOpen) {
-    console.log('FeedbackModal: isOpen is false, not rendering');
-    return null;
-  }
+  if (!isOpen) return null;
 
-  console.log('FeedbackModal: Rendering, formData:', formData);
-
-  const StarRating = ({ field, label, value, hovered }) => {
-    console.log(`StarRating render - field: ${field}, value: ${value}, hovered: ${hovered}`);
-
-    return (
-      <div className="feedback-rating-group">
-        <label className="feedback-label">{label} *</label>
-        <div className="star-rating" style={{display: 'flex', gap: '8px'}}>
-          {[1, 2, 3, 4, 5].map((star) => (
-            <button
-              key={star}
-              type="button"
-              className={`star ${star <= (hovered || value) ? 'active' : ''}`}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log(`Star button clicked: field=${field}, star=${star}`);
-                handleStarClick(field, star);
-              }}
-              aria-label={`${star} star${star > 1 ? 's' : ''}`}
-              style={{
-                background: 'none',
-                border: 'none',
-                fontSize: '32px',
-                color: star <= (hovered || value) ? '#ffc107' : '#444',
-                cursor: 'pointer',
-                padding: '4px',
-                lineHeight: '1',
-                pointerEvents: 'auto'
-              }}
-            >
-              ★
-            </button>
-          ))}
-        </div>
+  const StarRating = ({ field, label, value, hovered }) => (
+    <div className="feedback-rating-group">
+      <label className="feedback-label">{label} *</label>
+      <div className="star-rating">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <button
+            key={star}
+            type="button"
+            className={`star ${star <= (hovered || value) ? 'active' : ''}`}
+            onClick={() => handleStarClick(field, star)}
+            aria-label={`${star} star${star > 1 ? 's' : ''}`}
+          >
+            ★
+          </button>
+        ))}
       </div>
-    );
-  };
+    </div>
+  );
 
   return (
     <div className="feedback-modal-backdrop" onClick={handleSkip}>
@@ -155,16 +125,6 @@ const FeedbackModal = ({ isOpen, onClose, onSubmit, wizardVariant, configuration
         <div className="feedback-modal-header">
           <h2>How was your experience?</h2>
           <p className="feedback-subtitle">Help us improve the card configuration process</p>
-          <button
-            type="button"
-            onClick={() => {
-              console.log('TEST CLICK WORKING');
-              console.log('Current satisfaction:', formData.satisfactionRating);
-            }}
-            style={{padding: '10px', background: 'red', color: 'white', margin: '10px 0'}}
-          >
-            TEST BUTTON - Click Me
-          </button>
         </div>
 
         <form onSubmit={handleSubmit} className="feedback-form">

@@ -168,10 +168,8 @@ async function handleCreateConfiguration(req, res) {
   const validSchemes = ['Visa', 'Mastercard', 'American Express', 'Discover', 'UnionPay', 'JCB'];
 
   // Normalize card scheme - handle special cases and common aliases
-  console.log('[Config API] Original card_scheme:', configData.card_scheme);
   let normalizedScheme;
   const schemeLower = configData.card_scheme?.toLowerCase().trim();
-  console.log('[Config API] Lowercased scheme:', schemeLower);
 
   if (schemeLower === 'visa' || schemeLower === 'v') {
     normalizedScheme = 'Visa';
@@ -179,7 +177,6 @@ async function handleCreateConfiguration(req, res) {
     normalizedScheme = 'Mastercard';
   } else if (schemeLower === 'american express' || schemeLower === 'amex' || schemeLower === 'ae') {
     normalizedScheme = 'American Express';
-    console.log('[Config API] Matched American Express');
   } else if (schemeLower === 'discover') {
     normalizedScheme = 'Discover';
   } else if (schemeLower === 'unionpay' || schemeLower === 'union pay') {
@@ -189,10 +186,7 @@ async function handleCreateConfiguration(req, res) {
   } else {
     // Try the old normalization method as fallback
     normalizedScheme = configData.card_scheme?.charAt(0).toUpperCase() + configData.card_scheme?.slice(1).toLowerCase();
-    console.log('[Config API] Used fallback normalization:', normalizedScheme);
   }
-
-  console.log('[Config API] Final normalized scheme:', normalizedScheme);
 
   if (!validSchemes.includes(normalizedScheme)) {
     return res.status(400).json({

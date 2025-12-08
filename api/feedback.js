@@ -22,8 +22,6 @@ export default async function handler(req, res) {
     // Validate environment variables
     if (!supabaseUrl || !supabaseServiceKey) {
       console.error('Feedback API - Missing Supabase configuration');
-      console.error('SUPABASE_URL:', supabaseUrl ? 'SET' : 'NOT SET');
-      console.error('SUPABASE_SERVICE_KEY:', supabaseServiceKey ? 'SET' : 'NOT SET');
       return res.status(500).json({ error: 'Server configuration error' });
     }
 
