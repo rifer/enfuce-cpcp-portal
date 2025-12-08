@@ -129,8 +129,6 @@ const FeedbackModal = ({ isOpen, onClose, onSubmit, wizardVariant, configuration
                 console.log(`Star button clicked: field=${field}, star=${star}`);
                 handleStarClick(field, star);
               }}
-              onMouseEnter={() => setHoveredStars(prev => ({ ...prev, [field]: star }))}
-              onMouseLeave={() => setHoveredStars(prev => ({ ...prev, [field]: 0 }))}
               aria-label={`${star} star${star > 1 ? 's' : ''}`}
               style={{
                 background: 'none',
@@ -139,7 +137,8 @@ const FeedbackModal = ({ isOpen, onClose, onSubmit, wizardVariant, configuration
                 color: star <= (hovered || value) ? '#ffc107' : '#444',
                 cursor: 'pointer',
                 padding: '4px',
-                lineHeight: '1'
+                lineHeight: '1',
+                pointerEvents: 'auto'
               }}
             >
               ★
