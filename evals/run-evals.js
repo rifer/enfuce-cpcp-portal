@@ -220,6 +220,12 @@ async function runTestCase(testCase, provider = 'local') {
       result.provider = response.provider_used;
     }
 
+    // Debug: log provider info for first few tests
+    if (results.total < 3) {
+      console.log(`${colors.gray}  [DEBUG] API response has provider_used: ${response.provider_used}${colors.reset}`);
+      console.log(`${colors.gray}  [DEBUG] Result provider set to: ${result.provider}${colors.reset}`);
+    }
+
     // Check 1: Validation result
     if (testCase.expected_validation !== undefined) {
       const validationPassed = response.validated === testCase.expected_validation;
