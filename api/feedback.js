@@ -1,8 +1,8 @@
 // API endpoint to save user feedback after card configuration
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
 
 export default async function handler(req, res) {
   // Enable CORS
@@ -20,13 +20,20 @@ export default async function handler(req, res) {
 
   try {
     // Validate environment variables
-    if (!supabaseUrl || !supabaseAnonKey) {
+    if (!supabaseUrl || !supabaseServiceKey) {
       console.error('Feedback API - Missing Supabase configuration');
+      console.error('SUPABASE_URL:', supabaseUrl ? 'SET' : 'NOT SET');
+      console.error('SUPABASE_SERVICE_KEY:', supabaseServiceKey ? 'SET' : 'NOT SET');
       return res.status(500).json({ error: 'Server configuration error' });
     }
 
-    // Create Supabase client
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    // Create Supabase client with service key for server-side operations
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
 
     // Extract feedback data from request body
     const {
