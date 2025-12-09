@@ -62,19 +62,36 @@ export default async function handler(req, res) {
     let result;
     let actualProvider = 'local'; // Track which provider actually worked
 
-    if (provider === 'openai' && process.env.OPENAI_API_KEY) {
+    if (provider === 'openai') {
+      if (!process.env.OPENAI_API_KEY) {
+        console.error('[AI-Validate] OpenAI requested but OPENAI_API_KEY not set');
+        return res.status(500).json({
+          success: false,
+          error: 'OpenAI provider requested but API key not configured',
+          provider_used: 'none'
+        });
+      }
       console.log('[AI-Validate] Using OpenAI');
       result = await validateWithOpenAI(action, context);
       actualProvider = result.provider || 'openai'; // Use provider from result if available
-    } else if (provider === 'anthropic' && process.env.ANTHROPIC_API_KEY) {
+    } else if (provider === 'anthropic') {
+      if (!process.env.ANTHROPIC_API_KEY) {
+        console.error('[AI-Validate] Anthropic requested but ANTHROPIC_API_KEY not set');
+        console.error('[AI-Validate] Environment vars:', Object.keys(process.env).filter(k => k.includes('ANTHROPIC')));
+        return res.status(500).json({
+          success: false,
+          error: 'Anthropic provider requested but API key not configured in Vercel environment',
+          provider_used: 'none'
+        });
+      }
       console.log('[AI-Validate] Using Anthropic Claude');
       console.log('[AI-Validate] API Key length:', process.env.ANTHROPIC_API_KEY?.length);
       console.log('[AI-Validate] API Key starts with:', process.env.ANTHROPIC_API_KEY?.substring(0, 10));
       result = await validateWithAnthropic(action, context);
       actualProvider = result.provider || 'anthropic'; // Use provider from result if available
     } else {
-      // Fallback to local validation
-      console.log('[AI-Validate] Falling back to local validation. Provider:', provider, 'Has API key:', !!process.env.ANTHROPIC_API_KEY);
+      // Use local validation
+      console.log('[AI-Validate] Using local validation. Provider:', provider);
       result = await validateLocally(action, context);
       actualProvider = 'local';
     }
