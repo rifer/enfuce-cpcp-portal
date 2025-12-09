@@ -604,6 +604,11 @@ async function main() {
     results.total++;
     results.test_details.push(result);
 
+    // Add delay between Anthropic API calls to avoid rate limiting
+    if (AI_PROVIDER === 'anthropic') {
+      await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay = max 120 requests/min
+    }
+
     if (result.error) {
       results.errors++;
     } else if (result.passed) {
