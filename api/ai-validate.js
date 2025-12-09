@@ -233,8 +233,9 @@ function processCommand(input, history, collectedData, currentQuestion = {}) {
   }
 
   // Skip command - expanded to include more variations
+  // Note: "no" and "none" removed as they can be valid answers for optional fields
   const skipPhrases = [
-    'skip', 'skip this', 'next', 'pass', 'no', 'none', 'nope',
+    'skip', 'skip this', 'next', 'pass', 'nope',
     'skip it', 'pass this', 'not now', 'later', 'i don\'t know',
     'not sure', 'don\'t know'
   ];
@@ -619,7 +620,14 @@ function validateFieldLocally(question, userInput) {
       'PLN': ['pln', 'zloty', 'poland', 'polish'],
       'CZK': ['czk', 'koruna', 'czech', 'czechia'],
       'HUF': ['huf', 'forint', 'hungary', 'hungarian'],
-      'CHF': ['chf', 'franc', 'swiss', 'switzerland']
+      'CHF': ['chf', 'franc', 'swiss', 'switzerland'],
+
+      // Card designs
+      'corporate': ['corporate', 'business', 'professional', 'formal', 'standard', 'company', 'work'],
+      'premium': ['premium', 'luxury', 'fancy', 'exclusive', 'elegant', 'upscale', 'high-end', 'elite'],
+      'ocean': ['ocean', 'sea', 'blue', 'water', 'wave', 'marine', 'aqua'],
+      'sunset': ['sunset', 'orange', 'dusk', 'evening', 'warm'],
+      'custom': ['custom', 'unique', 'personalized', 'special', 'bespoke', 'tailored']
     };
 
     // Check fuzzy matches
@@ -778,9 +786,10 @@ function validateFieldLocally(question, userInput) {
 
     if (hexMatch) {
       const hexColor = userInput.startsWith('#') ? userInput : `#${userInput}`;
+      // Preserve case (don't force uppercase)
       return {
         validated: true,
-        extracted_value: hexColor.toUpperCase(),
+        extracted_value: hexColor,
         confidence: 1.0,
         ai_response: `Great! ${hexColor} it is. 🎨`,
         requires_clarification: false
@@ -807,16 +816,17 @@ function validateFieldLocally(question, userInput) {
       'white': '#FFFFFF',
       'gray': '#808080',
       'grey': '#808080',
-      'orange': '#FF6600',
-      'purple': '#9933CC',
-      'yellow': '#FFCC00',
-      'pink': '#FF66CC',
-      'brown': '#996633',
+      'orange': '#FFA500',  // Fixed: was #FF6600
+      'purple': '#800080',  // Fixed: was #9933CC
+      'yellow': '#FFFF00',  // Fixed: was #FFCC00
+      'pink': '#FFC0CB',    // Fixed: was #FF66CC
+      'brown': '#8B4513',   // Fixed: was #996633
       'gold': '#FFD700',
       'silver': '#C0C0C0',
       'navy': '#000080',
       'teal': '#008080',
-      'maroon': '#800000'
+      'maroon': '#800000',
+      'olive': '#808000'    // Added: was missing
     };
 
     // Check for color names (with optional "dark" or "light" prefix)
