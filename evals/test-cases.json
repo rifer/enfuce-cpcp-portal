@@ -832,6 +832,303 @@
       "expected_validation": false,
       "expected_command": "skip",
       "description": "Skip card color (optional field)"
+    },
+    {
+      "id": "card-color-hex-no-hash",
+      "category": "validation",
+      "step": "card_color",
+      "input": "FF5733",
+      "expected_validation": true,
+      "expected_value": "#FF5733",
+      "description": "Hex color without # prefix"
+    },
+    {
+      "id": "card-color-hex-short",
+      "category": "validation",
+      "step": "card_color",
+      "input": "#F00",
+      "expected_validation": true,
+      "expected_value": "#F00",
+      "description": "Short hex color code (#RGB format)"
+    },
+    {
+      "id": "card-color-hex-short-no-hash",
+      "category": "validation",
+      "step": "card_color",
+      "input": "0A0",
+      "expected_validation": true,
+      "expected_value": "#0A0",
+      "description": "Short hex without # prefix"
+    },
+    {
+      "id": "card-color-name-green",
+      "category": "validation",
+      "step": "card_color",
+      "input": "green",
+      "expected_validation": true,
+      "expected_value": "#00CC00",
+      "description": "Color name: green → hex"
+    },
+    {
+      "id": "card-color-name-yellow",
+      "category": "validation",
+      "step": "card_color",
+      "input": "yellow",
+      "expected_validation": true,
+      "expected_value": "#FFFF00",
+      "description": "Color name: yellow → hex"
+    },
+    {
+      "id": "card-color-name-orange",
+      "category": "validation",
+      "step": "card_color",
+      "input": "orange",
+      "expected_validation": true,
+      "expected_value": "#FFA500",
+      "description": "Color name: orange → hex"
+    },
+    {
+      "id": "card-color-name-purple",
+      "category": "validation",
+      "step": "card_color",
+      "input": "purple",
+      "expected_validation": true,
+      "expected_value": "#800080",
+      "description": "Color name: purple → hex"
+    },
+    {
+      "id": "card-color-name-pink",
+      "category": "validation",
+      "step": "card_color",
+      "input": "pink",
+      "expected_validation": true,
+      "expected_value": "#FFC0CB",
+      "description": "Color name: pink → hex"
+    },
+    {
+      "id": "card-color-name-white",
+      "category": "validation",
+      "step": "card_color",
+      "input": "white",
+      "expected_validation": true,
+      "expected_value": "#FFFFFF",
+      "description": "Color name: white → hex"
+    },
+    {
+      "id": "card-color-name-brown",
+      "category": "validation",
+      "step": "card_color",
+      "input": "brown",
+      "expected_validation": true,
+      "expected_value": "#8B4513",
+      "description": "Color name: brown → hex"
+    },
+    {
+      "id": "card-color-name-gray",
+      "category": "validation",
+      "step": "card_color",
+      "input": "gray",
+      "expected_validation": true,
+      "expected_value": "#808080",
+      "description": "Color name: gray → hex"
+    },
+    {
+      "id": "card-color-name-gold",
+      "category": "validation",
+      "step": "card_color",
+      "input": "gold",
+      "expected_validation": true,
+      "expected_value": "#FFD700",
+      "description": "Color name: gold → hex"
+    },
+    {
+      "id": "card-color-name-silver",
+      "category": "validation",
+      "step": "card_color",
+      "input": "silver",
+      "expected_validation": true,
+      "expected_value": "#C0C0C0",
+      "description": "Color name: silver → hex"
+    },
+    {
+      "id": "card-color-name-navy",
+      "category": "validation",
+      "step": "card_color",
+      "input": "navy",
+      "expected_validation": true,
+      "expected_value": "#000080",
+      "description": "Color name: navy → hex"
+    },
+    {
+      "id": "card-color-name-teal",
+      "category": "validation",
+      "step": "card_color",
+      "input": "teal",
+      "expected_validation": true,
+      "expected_value": "#008080",
+      "description": "Color name: teal → hex"
+    },
+    {
+      "id": "card-color-name-maroon",
+      "category": "validation",
+      "step": "card_color",
+      "input": "maroon",
+      "expected_validation": true,
+      "expected_value": "#800000",
+      "description": "Color name: maroon → hex"
+    },
+    {
+      "id": "card-color-name-olive",
+      "category": "validation",
+      "step": "card_color",
+      "input": "olive",
+      "expected_validation": true,
+      "expected_value": "#808000",
+      "description": "Color name: olive → hex"
+    },
+    {
+      "id": "card-color-dark-modifier-blue",
+      "category": "color_modifiers",
+      "step": "card_color",
+      "input": "dark blue",
+      "expected_validation": true,
+      "expected_response_contains": ["blue"],
+      "description": "Dark modifier: dark blue → darker shade"
+    },
+    {
+      "id": "card-color-dark-modifier-red",
+      "category": "color_modifiers",
+      "step": "card_color",
+      "input": "dark red",
+      "expected_validation": true,
+      "expected_response_contains": ["red"],
+      "description": "Dark modifier: dark red → darker shade"
+    },
+    {
+      "id": "card-color-dark-modifier-green",
+      "category": "color_modifiers",
+      "step": "card_color",
+      "input": "dark green",
+      "expected_validation": true,
+      "expected_response_contains": ["green"],
+      "description": "Dark modifier: dark green → darker shade"
+    },
+    {
+      "id": "card-color-light-modifier-blue",
+      "category": "color_modifiers",
+      "step": "card_color",
+      "input": "light blue",
+      "expected_validation": true,
+      "expected_response_contains": ["blue"],
+      "description": "Light modifier: light blue → lighter shade"
+    },
+    {
+      "id": "card-color-light-modifier-red",
+      "category": "color_modifiers",
+      "step": "card_color",
+      "input": "light red",
+      "expected_validation": true,
+      "expected_response_contains": ["red"],
+      "description": "Light modifier: light red → lighter shade"
+    },
+    {
+      "id": "card-color-light-modifier-green",
+      "category": "color_modifiers",
+      "step": "card_color",
+      "input": "light green",
+      "expected_validation": true,
+      "expected_response_contains": ["green"],
+      "description": "Light modifier: light green → lighter shade"
+    },
+    {
+      "id": "card-color-standard-keyword",
+      "category": "validation",
+      "step": "card_color",
+      "input": "standard",
+      "expected_validation": true,
+      "expected_value": "#2C3E50",
+      "description": "Standard keyword → default color"
+    },
+    {
+      "id": "card-color-none-optional",
+      "category": "validation",
+      "step": "card_color",
+      "input": "none",
+      "expected_validation": true,
+      "expected_value": "#2C3E50",
+      "description": "None keyword for optional field → default"
+    },
+    {
+      "id": "card-color-no-optional",
+      "category": "validation",
+      "step": "card_color",
+      "input": "no",
+      "expected_validation": true,
+      "expected_value": "#2C3E50",
+      "description": "No keyword for optional field → default"
+    },
+    {
+      "id": "card-color-natural-sentence",
+      "category": "validation",
+      "step": "card_color",
+      "input": "I'd like a green card",
+      "expected_validation": true,
+      "expected_value": "#00CC00",
+      "description": "Natural sentence with color name"
+    },
+    {
+      "id": "card-color-natural-with-modifier",
+      "category": "color_modifiers",
+      "step": "card_color",
+      "input": "Something light blue would be nice",
+      "expected_validation": true,
+      "expected_response_contains": ["blue"],
+      "description": "Natural sentence with light modifier"
+    },
+    {
+      "id": "card-color-case-insensitive-name",
+      "category": "validation",
+      "step": "card_color",
+      "input": "BLUE",
+      "expected_validation": true,
+      "expected_value": "#0066CC",
+      "description": "Case insensitive color name: BLUE"
+    },
+    {
+      "id": "card-color-case-insensitive-hex",
+      "category": "validation",
+      "step": "card_color",
+      "input": "#abc123",
+      "expected_validation": true,
+      "expected_value": "#ABC123",
+      "description": "Case insensitive hex (normalized to uppercase)"
+    },
+    {
+      "id": "card-color-invalid-hex",
+      "category": "validation",
+      "step": "card_color",
+      "input": "#GGGGGG",
+      "expected_validation": false,
+      "expected_response_contains": ["hex", "color"],
+      "description": "Invalid hex code (contains G)"
+    },
+    {
+      "id": "card-color-invalid-name",
+      "category": "validation",
+      "step": "card_color",
+      "input": "rainbow",
+      "expected_validation": false,
+      "expected_response_contains": ["color"],
+      "description": "Unrecognized color name: rainbow"
+    },
+    {
+      "id": "card-color-mixed-case-modifier",
+      "category": "color_modifiers",
+      "step": "card_color",
+      "input": "Dark Blue",
+      "expected_validation": true,
+      "expected_response_contains": ["blue"],
+      "description": "Mixed case with modifier: Dark Blue"
     }
   ]
 }
