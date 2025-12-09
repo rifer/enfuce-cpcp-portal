@@ -599,7 +599,7 @@ async function main() {
 
   // Run all test cases
   for (const testCase of testCases) {
-    const result = await runTestCase(testCase);
+    const result = await runTestCase(testCase, AI_PROVIDER === 'anthropic' ? 'anthropic' : 'local');
 
     results.total++;
     results.test_details.push(result);
