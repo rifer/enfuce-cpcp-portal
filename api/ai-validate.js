@@ -1162,7 +1162,14 @@ Response: {"validated": true, "extracted_value": "My company's fleet card progra
     }
   } catch (error) {
     console.error('[Anthropic] Error, falling back to local:', error);
+    console.error('[Anthropic] Error name:', error.name);
+    console.error('[Anthropic] Error message:', error.message);
+    console.error('[Anthropic] Error stack:', error.stack);
     const localResult = await validateLocally(action, context);
-    return { ...localResult, provider: 'local' }; // Mark as local fallback
+    return {
+      ...localResult,
+      provider: 'local',
+      fallback_reason: `Anthropic API error: ${error.message}` // Include error in response
+    };
   }
 }

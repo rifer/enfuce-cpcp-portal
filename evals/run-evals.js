@@ -226,6 +226,11 @@ async function runTestCase(testCase, provider = 'local') {
       console.log(`${colors.gray}  [DEBUG] Result provider set to: ${result.provider}${colors.reset}`);
     }
 
+    // Log fallback reason if provider fell back to local
+    if (response.fallback_reason) {
+      console.log(`${colors.yellow}  ⚠️  FALLBACK: ${response.fallback_reason}${colors.reset}`);
+    }
+
     // Check 1: Validation result
     if (testCase.expected_validation !== undefined) {
       const validationPassed = response.validated === testCase.expected_validation;
