@@ -1175,7 +1175,11 @@ Response: {"validated": true, "extracted_value": "My company's fleet card progra
       console.log('[Anthropic] Falling back to local due to parse error');
       // Fall back to local validation
       const localResult = await validateLocally(action, context);
-      return { ...localResult, provider: 'local' };
+      return {
+        ...localResult,
+        provider: 'local',
+        fallback_reason: `Anthropic JSON parse error: ${parseError.message}`
+      };
     }
   } catch (error) {
     console.error('[Anthropic] Error, falling back to local:', error);
