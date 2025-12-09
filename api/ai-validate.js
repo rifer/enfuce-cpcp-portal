@@ -753,6 +753,102 @@ function validateFieldLocally(question, userInput) {
     };
   }
 
+  // Color field handling
+  if (type === 'color') {
+    // Check if it's a hex color code
+    const hexPattern = /^#?([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/;
+    const hexMatch = userInput.match(hexPattern);
+
+    if (hexMatch) {
+      const hexColor = userInput.startsWith('#') ? userInput : `#${userInput}`;
+      return {
+        validated: true,
+        extracted_value: hexColor.toUpperCase(),
+        confidence: 1.0,
+        ai_response: `Great! ${hexColor} it is. 🎨`,
+        requires_clarification: false
+      };
+    }
+
+    // Handle "default" keyword
+    if (lowerInput === 'default' || lowerInput === 'standard') {
+      return {
+        validated: true,
+        extracted_value: '#2C3E50',
+        confidence: 1.0,
+        ai_response: `Perfect! Using the default color (#2C3E50). 👍`,
+        requires_clarification: false
+      };
+    }
+
+    // Handle common color names - convert to hex
+    const colorMap = {
+      'blue': '#0066CC',
+      'red': '#CC0000',
+      'green': '#00CC00',
+      'black': '#000000',
+      'white': '#FFFFFF',
+      'gray': '#808080',
+      'grey': '#808080',
+      'orange': '#FF6600',
+      'purple': '#9933CC',
+      'yellow': '#FFCC00',
+      'pink': '#FF66CC',
+      'brown': '#996633',
+      'gold': '#FFD700',
+      'silver': '#C0C0C0',
+      'navy': '#000080',
+      'teal': '#008080',
+      'maroon': '#800000'
+    };
+
+    // Check for color names (with optional "dark" or "light" prefix)
+    for (const [colorName, hexValue] of Object.entries(colorMap)) {
+      if (lowerInput.includes(colorName)) {
+        // Adjust shade if "dark" or "light" is mentioned
+        let finalColor = hexValue;
+        if (lowerInput.includes('dark')) {
+          // Darken the color (multiply RGB by 0.7)
+          const r = Math.round(parseInt(hexValue.slice(1, 3), 16) * 0.7);
+          const g = Math.round(parseInt(hexValue.slice(3, 5), 16) * 0.7);
+          const b = Math.round(parseInt(hexValue.slice(5, 7), 16) * 0.7);
+          finalColor = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`.toUpperCase();
+        } else if (lowerInput.includes('light')) {
+          // Lighten the color (add 128 to each RGB, max 255)
+          const r = Math.min(255, parseInt(hexValue.slice(1, 3), 16) + 80);
+          const g = Math.min(255, parseInt(hexValue.slice(3, 5), 16) + 80);
+          const b = Math.min(255, parseInt(hexValue.slice(5, 7), 16) + 80);
+          finalColor = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`.toUpperCase();
+        }
+
+        return {
+          validated: true,
+          extracted_value: finalColor,
+          confidence: 0.9,
+          ai_response: `Perfect! ${lowerInput.charAt(0).toUpperCase() + lowerInput.slice(1)} (${finalColor}). 🎨`,
+          requires_clarification: false
+        };
+      }
+    }
+
+    // If field is optional and input suggests skipping
+    if (question.optional && (lowerInput === 'skip' || lowerInput === 'none' || lowerInput === 'no')) {
+      return {
+        validated: true,
+        extracted_value: '#2C3E50', // Default
+        confidence: 1.0,
+        ai_response: `No problem! I'll use the default color. 👍`,
+        requires_clarification: false
+      };
+    }
+
+    return {
+      validated: false,
+      ai_response: 'I didn\'t recognize that color. You can use a hex code (like #2C3E50), a color name (like blue, red, green), or type "default".',
+      requires_clarification: true
+    };
+  }
+
   return {
     validated: false,
     ai_response: 'I didn\'t quite understand that. Could you try again?',
