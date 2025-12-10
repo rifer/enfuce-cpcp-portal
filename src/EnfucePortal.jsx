@@ -1798,49 +1798,127 @@ const EnfucePortal = () => {
                 </div>
               </div>
             ) : (
-              <button
-                onClick={() => {
-                  trackPurchase();
+              <div className="space-y-4">
+                {/* Program Summary Card */}
+                <div className="bg-slate-800/50 border border-slate-600/30 rounded-xl p-5">
+                  <h3 className="text-lg font-bold text-[#7DD3C0] mb-4 flex items-center gap-2">
+                    <span>📋</span>
+                    <span>Program Summary</span>
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    {/* Program Details */}
+                    <div className="col-span-2">
+                      <div className="text-slate-400 text-xs mb-1">Program Name</div>
+                      <div className="text-white font-semibold">{newProgram.name || 'N/A'}</div>
+                    </div>
+                    <div>
+                      <div className="text-slate-400 text-xs mb-1">Type</div>
+                      <div className="text-white font-semibold capitalize">{newProgram.type || 'N/A'}</div>
+                    </div>
+                    <div>
+                      <div className="text-slate-400 text-xs mb-1">Funding</div>
+                      <div className="text-white font-semibold capitalize">{newProgram.fundingModel || 'N/A'}</div>
+                    </div>
+                    <div>
+                      <div className="text-slate-400 text-xs mb-1">Card Scheme</div>
+                      <div className="text-white font-semibold">{newProgram.scheme || 'N/A'}</div>
+                    </div>
+                    <div>
+                      <div className="text-slate-400 text-xs mb-1">Currency</div>
+                      <div className="text-white font-semibold">{newProgram.currency || 'EUR'}</div>
+                    </div>
+                    <div>
+                      <div className="text-slate-400 text-xs mb-1">Estimated Cards</div>
+                      <div className="text-white font-semibold">{newProgram.estimatedCards?.toLocaleString() || '100'}</div>
+                    </div>
+                    <div>
+                      <div className="text-slate-400 text-xs mb-1">Daily Limit</div>
+                      <div className="text-white font-semibold">{newProgram.dailyLimit?.toLocaleString() || '500'} {newProgram.currency}</div>
+                    </div>
+                    <div>
+                      <div className="text-slate-400 text-xs mb-1">Monthly Limit</div>
+                      <div className="text-white font-semibold">{newProgram.monthlyLimit?.toLocaleString() || '5000'} {newProgram.currency}</div>
+                    </div>
+                    <div>
+                      <div className="text-slate-400 text-xs mb-1">Card Design</div>
+                      <div className="text-white font-semibold capitalize">{newProgram.cardDesign || 'Corporate'}</div>
+                    </div>
+                    <div>
+                      <div className="text-slate-400 text-xs mb-1">Card Color</div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-white font-semibold">{newProgram.cardColor || '#2C3E50'}</span>
+                        <span
+                          className="w-6 h-6 rounded border border-slate-600"
+                          style={{ backgroundColor: newProgram.cardColor || '#2C3E50' }}
+                        ></span>
+                      </div>
+                    </div>
+                    <div className="col-span-2">
+                      <div className="text-slate-400 text-xs mb-1">Form Factors</div>
+                      <div className="text-white font-semibold capitalize">
+                        {Array.isArray(newProgram.formFactor) ? newProgram.formFactor.join(', ') : 'N/A'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-                  // Track chat wizard completion
-                  const sessionId = localStorage.getItem('session_id');
-                  sendEventToAPI({
-                    timestamp: new Date().toISOString(),
-                    sessionId,
-                    eventType: 'chat_wizard_event',
-                    event_action: 'chat_wizard_completed',
-                    ctaVariant: abTestVariant,
-                    pricingVariant: pricingVariant,
-                    wizardVariant: wizardVariant,
-                    messages_count: chatMessages.length,
-                    program_name: newProgram.name
-                  });
+                {/* Action Buttons */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      // Allow user to go back and edit
+                      setChatStep(chatStep - 2); // Go back to last data entry step (before summary)
+                      addChatMessage("Let me go back so you can make changes. What would you like to edit?", false);
+                    }}
+                    className="flex-1 px-6 py-4 bg-slate-700/50 text-white rounded-xl font-semibold hover:bg-slate-600/50 transition-all border border-slate-600/30"
+                  >
+                    ✏️ Make Changes
+                  </button>
+                  <button
+                    onClick={() => {
+                      trackPurchase();
 
-                  if (typeof gtag !== 'undefined') {
-                    gtag('event', 'chat_wizard_completed', {
-                      messages_count: chatMessages.length,
-                      program_name: newProgram.name
-                    });
-                  }
+                      // Track chat wizard completion
+                      const sessionId = localStorage.getItem('session_id');
+                      sendEventToAPI({
+                        timestamp: new Date().toISOString(),
+                        sessionId,
+                        eventType: 'chat_wizard_event',
+                        event_action: 'chat_wizard_completed',
+                        ctaVariant: abTestVariant,
+                        pricingVariant: pricingVariant,
+                        wizardVariant: wizardVariant,
+                        messages_count: chatMessages.length,
+                        program_name: newProgram.name
+                      });
 
-                  // Save configuration to API
-                  saveConfiguration();
-                }}
-                disabled={saveStatus.loading}
-                className={`w-full px-8 py-4 rounded-xl font-bold transition-all shadow-lg text-lg ${
-                  saveStatus.loading
-                    ? 'bg-slate-600 text-slate-400 cursor-wait'
-                    : saveStatus.success
-                      ? 'bg-emerald-500 text-white'
-                      : 'bg-[#7DD3C0] text-[#2C3E50] hover:bg-[#6BC3B0]'
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
-              >
-                {saveStatus.loading
-                  ? '💾 Saving Configuration...'
-                  : saveStatus.success
-                    ? '✅ Configuration Saved!'
-                    : '🎉 Complete Program'}
-              </button>
+                      if (typeof gtag !== 'undefined') {
+                        gtag('event', 'chat_wizard_completed', {
+                          messages_count: chatMessages.length,
+                          program_name: newProgram.name
+                        });
+                      }
+
+                      // Save configuration to API
+                      saveConfiguration();
+                    }}
+                    disabled={saveStatus.loading}
+                    className={`flex-1 px-6 py-4 rounded-xl font-bold transition-all shadow-lg ${
+                      saveStatus.loading
+                        ? 'bg-slate-600 text-slate-400 cursor-wait'
+                        : saveStatus.success
+                          ? 'bg-emerald-500 text-white'
+                          : 'bg-[#7DD3C0] text-[#2C3E50] hover:bg-[#6BC3B0]'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    {saveStatus.loading
+                      ? '💾 Saving...'
+                      : saveStatus.success
+                        ? '✅ Saved!'
+                        : '🎉 Confirm & Purchase'}
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </div>
