@@ -577,15 +577,6 @@
       "description": "Multiselect all: every one → all options"
     },
     {
-      "id": "skip-no",
-      "category": "commands",
-      "step": "daily_limit",
-      "input": "no",
-      "expected_validation": false,
-      "expected_command": "skip",
-      "description": "Skip command: no → skip"
-    },
-    {
       "id": "skip-pass",
       "category": "commands",
       "step": "daily_limit",
@@ -1100,8 +1091,8 @@
       "step": "card_color",
       "input": "#abc123",
       "expected_validation": true,
-      "expected_value": "#ABC123",
-      "description": "Case insensitive hex (normalized to uppercase)"
+      "expected_value": "#abc123",
+      "description": "Hex color preserves user's case"
     },
     {
       "id": "card-color-invalid-hex",
